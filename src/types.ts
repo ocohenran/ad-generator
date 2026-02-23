@@ -1,10 +1,12 @@
-export type TemplateType = 'standard' | 'before-after' | 'testimonial' | 'stats' | 'product-spotlight';
-export type AspectRatio = '1:1' | '9:16' | '16:9';
+export type TemplateType = 'standard' | 'before-after' | 'testimonial' | 'stats' | 'product-spotlight' | 'bold-statement';
+export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
 export type Theme = 'dark' | 'light';
 export type BrainstormTone = 'professional' | 'playful' | 'urgent' | 'luxury' | 'minimal';
+export type LayoutVariant = 'centered' | 'asymmetric';
 
 export const ASPECT_DIMENSIONS: Record<AspectRatio, { w: number; h: number }> = {
   '1:1': { w: 1080, h: 1080 },
+  '4:5': { w: 1080, h: 1350 },
   '9:16': { w: 1080, h: 1920 },
   '16:9': { w: 1920, h: 1080 },
 };
@@ -12,6 +14,7 @@ export const ASPECT_DIMENSIONS: Record<AspectRatio, { w: number; h: number }> = 
 export const FONT_OPTIONS = [
   { label: 'Inter', value: "'Inter', system-ui, sans-serif" },
   { label: 'Poppins', value: "'Poppins', sans-serif" },
+  { label: 'Sora', value: "'Sora', sans-serif" },
   { label: 'Playfair Display', value: "'Playfair Display', serif" },
   { label: 'Space Grotesk', value: "'Space Grotesk', sans-serif" },
   { label: 'DM Sans', value: "'DM Sans', sans-serif" },
@@ -27,6 +30,7 @@ export interface AdConfig {
   gradientFrom: string;
   gradientTo: string;
   gradientAngle: number;
+  gradientMid?: string;
   // Before/After template
   beforeBg: string;
   afterBg: string;
@@ -56,18 +60,24 @@ export interface AdConfig {
   headlineColor: string;
   paragraphColor: string;
   showGrain: boolean;
+  // Modern additions
+  headlineFontFamily?: string;
+  accentGlow?: boolean;
+  layoutVariant?: LayoutVariant;
 }
 
 export interface AdVariation {
   id: string;
   headline: string;
   paragraph: string;
+  cta?: string;
 }
 
 export interface TemplateProps {
   config: AdConfig;
   headline?: string;
   paragraph?: string;
+  cta?: string;
   scale?: number;
   width: number;
   height: number;
@@ -75,36 +85,39 @@ export interface TemplateProps {
 
 export const DEFAULT_CONFIG: AdConfig = {
   template: 'standard',
-  aspectRatio: '1:1',
+  aspectRatio: '4:5',
   fontFamily: "'Inter', system-ui, sans-serif",
   backgroundImage: null,
-  gradientFrom: '#6366f1',
-  gradientTo: '#0ea5e9',
+  gradientFrom: '#6D28D9',
+  gradientTo: '#EC4899',
+  gradientMid: '#7C3AED',
   gradientAngle: 135,
-  beforeBg: '#1e1b2e',
-  afterBg: '#0f2a1f',
+  beforeBg: '#0A0F1E',
+  afterBg: '#0B1220',
   beforeLabel: 'BEFORE',
   afterLabel: 'AFTER',
   testimonialQuote: '"GWork transformed how our teams operate. The behavioral nudges are subtle but the results are undeniable."',
   testimonialAuthor: 'Sarah Chen',
   testimonialRole: 'VP People, TechCorp',
-  testimonialBg: '#1a1035',
+  testimonialBg: '#0A0F1E',
   statValue: '34%',
   statLabel: 'Productivity Increase',
   statSubtext: 'Average improvement across 500+ enterprise teams using GWork behavioral nudges.',
-  statBg: '#0a0f1a',
-  statAccent: '#6366f1',
-  spotlightBg: '#0f0f14',
-  spotlightAccent: '#f59e0b',
+  statBg: '#0A0F1E',
+  statAccent: '#7C3AED',
+  spotlightBg: '#0A0F1E',
+  spotlightAccent: '#FA6F1C',
   logoText: 'GWork',
   headline: 'Transform Your Workforce Behavior',
   paragraph: 'The behavioral change platform that drives measurable results for enterprise teams. Backed by science, powered by AI.',
   ctaText: 'Book a Demo \u2192',
-  ctaColor: '#f59e0b',
-  ctaTextColor: '#000000',
+  ctaColor: '#FA6F1C',
+  ctaTextColor: '#ffffff',
   headlineColor: '#ffffff',
   paragraphColor: '#e2e8f0',
   showGrain: true,
+  accentGlow: true,
+  layoutVariant: 'asymmetric',
 };
 
 export const SAMPLE_VARIATIONS: AdVariation[] = [

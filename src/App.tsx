@@ -3,6 +3,7 @@ import { AdPreview } from './components/AdPreview';
 import { EditorPanel } from './components/EditorPanel';
 import { BulkPanel } from './components/BulkPanel';
 import { BrainstormPanel } from './components/BrainstormPanel';
+import { ResearchPanel } from './components/ResearchPanel';
 import { ComparisonMode } from './components/ComparisonMode';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
@@ -16,7 +17,7 @@ import { DEFAULT_CONFIG, SAMPLE_VARIATIONS, ASPECT_DIMENSIONS } from './types';
 import type { AdVariation, Theme } from './types';
 import './App.css';
 
-type Tab = 'editor' | 'bulk' | 'brainstorm';
+type Tab = 'editor' | 'bulk' | 'brainstorm' | 'research';
 
 function App() {
   const {
@@ -44,11 +45,23 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeVariation, setActiveVariation] = useState<AdVariation | null>(null);
+  const [researchBrief, setResearchBrief] = useState<string | undefined>();
+  const [metaCopied, setMetaCopied] = useState(false);
+  const [likedIds, setLikedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('ad-gen:liked');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
   const exportDropdownRef = useRef<HTMLDivElement>(null);
 
   // Persist state
   useSaveToStorage('config', config);
   useSaveToStorage('variations', variations);
+
+  useEffect(() => {
+    localStorage.setItem('ad-gen:liked', JSON.stringify([...likedIds]));
+  }, [likedIds]);
 
   // Theme
   useEffect(() => {
@@ -120,6 +133,38 @@ function App() {
     setActiveVariation((prev) => prev?.id === v.id ? null : v);
   }, []);
 
+  const handleToggleLike = useCallback((id: string) => {
+    setLikedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const likedVariations = useMemo(
+    () => variations.filter((v) => likedIds.has(v.id)),
+    [variations, likedIds],
+  );
+
+  const handleSendToBrief = useCallback((brief: string) => {
+    setResearchBrief(brief);
+    setActiveTab('brainstorm');
+  }, []);
+
+  const handleCopyToMeta = useCallback(() => {
+    const h = activeVariation?.headline ?? config.headline;
+    const p = activeVariation?.paragraph ?? config.paragraph;
+    const d = activeVariation?.cta ?? config.ctaText;
+    const text = `Primary Text: ${p}\nHeadline: ${h}\nDescription: ${d}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setMetaCopied(true);
+      setTimeout(() => setMetaCopied(false), 2000);
+    }).catch(() => {
+      console.warn('Clipboard write failed');
+    });
+  }, [activeVariation, config]);
+
   return (
     <ErrorBoundary>
       <div className="app" data-theme={theme}>
@@ -175,7 +220,7 @@ function App() {
           {!sidebarCollapsed && (
             <aside className="sidebar">
               <div className="tab-bar" role="tablist">
-                {([['editor', 'Template'], ['bulk', 'Bulk Generate'], ['brainstorm', 'Brainstorm']] as const).map(
+                {([['research', 'Research'], ['editor', 'Template'], ['bulk', 'Bulk Generate'], ['brainstorm', 'Brainstorm']] as const).map(
                   ([key, label]) => (
                     <button
                       key={key}
@@ -191,11 +236,14 @@ function App() {
               </div>
 
               <div className="sidebar-content" role="tabpanel">
+                {activeTab === 'research' && <ResearchPanel onSendToBrief={handleSendToBrief} />}
                 {activeTab === 'editor' && <EditorPanel config={config} onChange={setConfig} />}
                 {activeTab === 'bulk' && <BulkPanel variations={variations} onVariationsChange={setVariations} />}
                 {activeTab === 'brainstorm' && (
                   <BrainstormPanel
                     onAdd={(newVars) => setVariations((prev) => [...prev, ...newVars])}
+                    initialBrief={researchBrief}
+                    likedVariations={likedVariations}
                   />
                 )}
               </div>
@@ -217,6 +265,13 @@ function App() {
             <div className="preview-label">
               Live Preview &mdash; {dims.w} &times; {dims.h}
               {activeVariation && <span style={{ color: 'var(--accent)' }}>(Variation selected)</span>}
+              <button
+                className="btn-secondary"
+                onClick={handleCopyToMeta}
+                style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 10px' }}
+              >
+                {metaCopied ? 'Copied!' : 'Copy for Meta'}
+              </button>
               <span className="shortcut-hint">Ctrl+Z undo &middot; Ctrl+S export</span>
             </div>
             <div className="preview-container">
@@ -226,6 +281,7 @@ function App() {
                     config={config}
                     headline={activeVariation?.headline}
                     paragraph={activeVariation?.paragraph}
+                    cta={activeVariation?.cta}
                     scale={previewScale}
                   />
                 </ErrorBoundary>
@@ -255,7 +311,9 @@ function App() {
                       variation={v}
                       index={i}
                       isActive={activeVariation?.id === v.id}
+                      isLiked={likedIds.has(v.id)}
                       onClick={handleThumbClick}
+                      onToggleLike={handleToggleLike}
                     />
                   ))}
                 </div>

@@ -73,7 +73,7 @@ function waitForPaint(): Promise<void> {
 async function renderAndCapture(
   config: AdConfig, dims: { w: number; h: number },
   format: ExportFormat, quality: number,
-  headline?: string, paragraph?: string,
+  headline?: string, paragraph?: string, cta?: string,
 ): Promise<Blob> {
   const offscreen = document.createElement('div');
   offscreen.style.cssText = 'position:fixed;left:-9999px;top:0';
@@ -83,7 +83,7 @@ async function renderAndCapture(
   try {
     flushSync(() => {
       root.render(
-        <AdPreview config={config} headline={headline} paragraph={paragraph} scale={1} />
+        <AdPreview config={config} headline={headline} paragraph={paragraph} cta={cta} scale={1} />
       );
     });
     await waitForPaint();
@@ -112,7 +112,7 @@ export function useExport(opts: ExportOptions) {
     try {
       const blob = await renderAndCapture(
         config, dims, format, jpegQuality,
-        activeVariation?.headline, activeVariation?.paragraph,
+        activeVariation?.headline, activeVariation?.paragraph, activeVariation?.cta,
       );
       downloadBlob(blob, `${buildFilename(filenamePattern, config, activeVariation ?? null, 0)}.${ext}`);
     } catch (err) {
@@ -153,6 +153,7 @@ export function useExport(opts: ExportOptions) {
                 config={config}
                 headline={variations[i].headline}
                 paragraph={variations[i].paragraph}
+                cta={variations[i].cta}
                 scale={1}
               />
             );
@@ -193,7 +194,7 @@ export function useExport(opts: ExportOptions) {
     setExporting(true);
     setExportError(null);
     const zip = new JSZip();
-    const ratios: AspectRatio[] = ['1:1', '9:16', '16:9'];
+    const ratios: AspectRatio[] = ['1:1', '4:5', '9:16', '16:9'];
     setExportProgress({ current: 0, total: ratios.length });
 
     const offscreen = document.createElement('div');
@@ -214,7 +215,15 @@ export function useExport(opts: ExportOptions) {
         try {
           const batchConfig = { ...config, aspectRatio: ratio };
           flushSync(() => {
-            root.render(<AdPreview config={batchConfig} scale={1} />);
+            root.render(
+              <AdPreview
+                config={batchConfig}
+                headline={activeVariation?.headline}
+                paragraph={activeVariation?.paragraph}
+                cta={activeVariation?.cta}
+                scale={1}
+              />
+            );
           });
           await waitForPaint();
 
@@ -243,7 +252,7 @@ export function useExport(opts: ExportOptions) {
       exportingRef.current = false;
       setExporting(false);
     }
-  }, [config, format, jpegQuality, ext]);
+  }, [config, format, jpegQuality, ext, activeVariation]);
 
   const clearError = useCallback(() => setExportError(null), []);
 

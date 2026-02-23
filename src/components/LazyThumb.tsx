@@ -7,13 +7,15 @@ interface Props {
   variation: AdVariation;
   index: number;
   isActive: boolean;
+  isLiked: boolean;
   onClick: (v: AdVariation) => void;
+  onToggleLike: (id: string) => void;
 }
 
 export const LazyThumb = memo(function LazyThumb({
-  config, variation, index, isActive, onClick,
+  config, variation, index, isActive, isLiked, onClick, onToggleLike,
 }: Props) {
-  const ref = useRef<HTMLButtonElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -34,22 +36,40 @@ export const LazyThumb = memo(function LazyThumb({
   }, []);
 
   return (
-    <button
+    <div
       ref={ref}
-      type="button"
       className={`thumb-card ${isActive ? 'thumb-card-active' : ''}`}
       onClick={() => onClick(variation)}
       role="option"
       aria-selected={isActive}
       aria-label={`Variation ${index + 1}: ${variation.headline}`}
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(variation); } }}
     >
-      <div className="thumb-number">#{index + 1}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div className="thumb-number">#{index + 1}</div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleLike(variation.id); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 16, padding: '2px 4px', lineHeight: 1,
+            color: isLiked ? '#ef4444' : 'var(--text-faint)',
+            transition: 'color 0.15s, transform 0.15s',
+            transform: isLiked ? 'scale(1.2)' : 'scale(1)',
+          }}
+          aria-label={isLiked ? 'Unlike variation' : 'Like variation'}
+        >
+          {isLiked ? '\u2764\uFE0F' : '\u2661'}
+        </button>
+      </div>
       <div className="thumb-render">
         {visible ? (
           <AdPreview
             config={config}
             headline={variation.headline}
             paragraph={variation.paragraph}
+            cta={variation.cta}
             scale={0.2}
           />
         ) : (
@@ -57,6 +77,6 @@ export const LazyThumb = memo(function LazyThumb({
         )}
       </div>
       <div className="thumb-headline">{variation.headline}</div>
-    </button>
+    </div>
   );
 });

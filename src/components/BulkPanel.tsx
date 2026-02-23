@@ -23,15 +23,17 @@ export function BulkPanel({ variations, onVariationsChange }: Props) {
       const trimmed = line.trim();
       if (trimmed.startsWith('H:') || trimmed.startsWith('Headline:')) {
         if (current.headline && current.paragraph) {
-          newVariations.push({ id: crypto.randomUUID(), headline: current.headline, paragraph: current.paragraph });
+          newVariations.push({ id: crypto.randomUUID(), headline: current.headline, paragraph: current.paragraph, cta: current.cta });
         }
         current = { headline: trimmed.replace(/^(H|Headline):\s*/, '') };
       } else if (trimmed.startsWith('P:') || trimmed.startsWith('Paragraph:')) {
         current.paragraph = trimmed.replace(/^(P|Paragraph):\s*/, '');
+      } else if (trimmed.startsWith('C:') || trimmed.startsWith('CTA:')) {
+        current.cta = trimmed.replace(/^(C|CTA):\s*/, '');
       }
     }
     if (current.headline && current.paragraph) {
-      newVariations.push({ id: crypto.randomUUID(), headline: current.headline, paragraph: current.paragraph });
+      newVariations.push({ id: crypto.randomUUID(), headline: current.headline, paragraph: current.paragraph, cta: current.cta });
     }
 
     if (newVariations.length > 0) {
@@ -58,7 +60,7 @@ export function BulkPanel({ variations, onVariationsChange }: Props) {
 
   const copyText = async (v: AdVariation) => {
     try {
-      await navigator.clipboard.writeText(`${v.headline}\n${v.paragraph}`);
+      await navigator.clipboard.writeText(`${v.headline}\n${v.paragraph}${v.cta ? `\n${v.cta}` : ''}`);
       setCopiedId(v.id);
       setTimeout(() => setCopiedId(null), 1500);
     } catch {
@@ -124,7 +126,7 @@ export function BulkPanel({ variations, onVariationsChange }: Props) {
           rows={6}
           value={bulkText}
           onChange={(e) => setBulkText(e.target.value)}
-          placeholder={`H: Your headline here\nP: Your paragraph here\nH: Another headline\nP: Another paragraph`}
+          placeholder={`H: Your headline here\nP: Your paragraph here\nC: Try It Free \u2192\nH: Another headline\nP: Another paragraph\nC: Book a Demo \u2192`}
           style={{ fontSize: 12, fontFamily: 'monospace' }}
         />
         <button className="btn-primary" onClick={parseBulkText} style={{ marginTop: 8 }}>
@@ -165,6 +167,7 @@ export function BulkPanel({ variations, onVariationsChange }: Props) {
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>#{i + 1}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>{v.headline}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{v.paragraph}</div>
+                {v.cta && <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 3 }}>[{v.cta}]</div>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <button

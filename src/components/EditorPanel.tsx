@@ -1,6 +1,6 @@
-import { useRef } from 'react';
-import type { AdConfig, AspectRatio, TemplateType } from '../types';
-import { FONT_OPTIONS } from '../types';
+import { useRef, useState, useEffect } from 'react';
+import type { AdConfig, AspectRatio, TemplateType, LayoutVariant } from '../types';
+import { FONT_OPTIONS, DEFAULT_CONFIG } from '../types';
 
 interface Props {
   config: AdConfig;
@@ -30,22 +30,88 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+function CharCount({ value, limit, label }: { value: string; limit: number; label: string }) {
+  const len = value.length;
+  const color = len <= limit ? 'var(--success, #22c55e)' : len <= limit * 1.2 ? 'var(--warning, #f59e0b)' : 'var(--danger, #ef4444)';
+  return (
+    <span style={{ fontSize: 11, color, marginTop: 2, display: 'block' }}>
+      {len}/{limit} chars {len > limit ? `(${label} truncates at ${limit})` : ''}
+    </span>
+  );
+}
+
+const PRESETS_KEY = 'ad-gen:presets';
+const BUILTIN_PRESETS: Record<string, AdConfig> = {
+  'GWork Dark': DEFAULT_CONFIG,
+  'GWork Light': {
+    ...DEFAULT_CONFIG,
+    gradientFrom: '#E0E7FF',
+    gradientMid: '#C7D2FE',
+    gradientTo: '#F5F3FF',
+    headlineColor: '#1e1b4b',
+    paragraphColor: '#334155',
+    ctaColor: '#7C3AED',
+    ctaTextColor: '#ffffff',
+  },
+};
+
+function loadPresets(): Record<string, AdConfig> {
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePresets(presets: Record<string, AdConfig>) {
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+}
+
 const TEMPLATES: { key: TemplateType; label: string }[] = [
   { key: 'standard', label: 'Standard' },
   { key: 'before-after', label: 'Before/After' },
   { key: 'testimonial', label: 'Testimonial' },
   { key: 'stats', label: 'Stats' },
   { key: 'product-spotlight', label: 'Spotlight' },
+  { key: 'bold-statement', label: 'Bold Statement' },
 ];
 
 const RATIOS: { key: AspectRatio; label: string }[] = [
   { key: '1:1', label: '1:1 Feed' },
+  { key: '4:5', label: '4:5 Feed' },
   { key: '9:16', label: '9:16 Story' },
   { key: '16:9', label: '16:9 Wide' },
 ];
 
 export function EditorPanel({ config, onChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [customPresets, setCustomPresets] = useState<Record<string, AdConfig>>(loadPresets);
+  const allPresets = { ...BUILTIN_PRESETS, ...customPresets };
+
+  useEffect(() => {
+    savePresets(customPresets);
+  }, [customPresets]);
+
+  const handleSavePreset = () => {
+    const name = window.prompt('Preset name:');
+    if (!name?.trim()) return;
+    setCustomPresets((prev) => ({ ...prev, [name.trim()]: { ...config } }));
+  };
+
+  const handleLoadPreset = (name: string) => {
+    const preset = allPresets[name];
+    if (preset) onChange({ ...preset });
+  };
+
+  const handleDeletePreset = (name: string) => {
+    if (name in BUILTIN_PRESETS) return;
+    setCustomPresets((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
 
   const update = <K extends keyof AdConfig>(key: K, value: AdConfig[K]) => {
     onChange({ ...config, [key]: value });
@@ -87,6 +153,38 @@ export function EditorPanel({ config, onChange }: Props) {
         </div>
       </Section>
 
+      {/* Presets */}
+      <Section label="Presets">
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {Object.keys(allPresets).map((name) => (
+            <span key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <button
+                className="template-btn"
+                onClick={() => handleLoadPreset(name)}
+                style={{ fontSize: 11 }}
+              >
+                {name}
+              </button>
+              {!(name in BUILTIN_PRESETS) && (
+                <button
+                  onClick={() => handleDeletePreset(name)}
+                  style={{
+                    background: 'none', border: 'none', color: 'var(--text-dim)',
+                    cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1,
+                  }}
+                  title={`Delete "${name}"`}
+                >
+                  &times;
+                </button>
+              )}
+            </span>
+          ))}
+          <button className="btn-secondary" onClick={handleSavePreset} style={{ fontSize: 11, padding: '3px 8px' }}>
+            Save As...
+          </button>
+        </div>
+      </Section>
+
       {/* Aspect Ratio */}
       <Section label="Aspect Ratio">
         <div style={{ display: 'flex', gap: 6 }}>
@@ -115,6 +213,43 @@ export function EditorPanel({ config, onChange }: Props) {
           ))}
         </select>
       </Section>
+
+      {/* Headline Font (optional override) */}
+      <Section label="Headline Font">
+        <select
+          className="editor-input"
+          value={config.headlineFontFamily ?? ''}
+          onChange={(e) => update('headlineFontFamily', e.target.value || undefined)}
+          style={{ cursor: 'pointer' }}
+        >
+          <option value="">Same as body font</option>
+          {FONT_OPTIONS.map((f) => (
+            <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+      </Section>
+
+      {/* Layout Variant */}
+      <Section label="Layout">
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['centered', 'asymmetric'] as LayoutVariant[]).map((v) => (
+            <button
+              key={v}
+              className={`template-btn ${(config.layoutVariant ?? 'asymmetric') === v ? 'active' : ''}`}
+              onClick={() => update('layoutVariant', v)}
+            >
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {/* Accent Glow */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+        <input type="checkbox" checked={config.accentGlow ?? true}
+          onChange={(e) => update('accentGlow', e.target.checked)} />
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Accent glow effects</span>
+      </label>
 
       {/* Background Image */}
       <Section label="Background Image">
@@ -151,8 +286,9 @@ export function EditorPanel({ config, onChange }: Props) {
       {config.template === 'standard' && (
         <Section label="Gradient">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <ColorInput label="From" value={config.gradientFrom} onChange={(v) => update('gradientFrom', v)} />
+              <ColorInput label="Mid" value={config.gradientMid ?? config.gradientFrom} onChange={(v) => update('gradientMid', v)} />
               <ColorInput label="To" value={config.gradientTo} onChange={(v) => update('gradientTo', v)} />
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -238,12 +374,14 @@ export function EditorPanel({ config, onChange }: Props) {
       <Section label="Headline">
         <textarea className="editor-input" rows={2} value={config.headline}
           onChange={(e) => update('headline', e.target.value)} placeholder="Ad headline" />
+        <CharCount value={config.headline} limit={40} label="Meta headline" />
       </Section>
 
       {/* Paragraph */}
       <Section label="Supporting Text">
         <textarea className="editor-input" rows={3} value={config.paragraph}
           onChange={(e) => update('paragraph', e.target.value)} placeholder="Supporting paragraph" />
+        <CharCount value={config.paragraph} limit={125} label="Meta primary text" />
       </Section>
 
       {/* CTA */}

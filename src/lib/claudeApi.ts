@@ -1,6 +1,7 @@
 export interface AdCopyResult {
   headline: string;
   paragraph: string;
+  cta: string;
 }
 
 export class ClaudeApiError extends Error {
@@ -15,9 +16,14 @@ export class ClaudeApiError extends Error {
   }
 }
 
-const SYSTEM_PROMPT = `You are an expert advertising copywriter. Given a marketing brief, generate exactly 8 ad copy variations. Each variation has a headline (max 12 words, punchy, attention-grabbing) and a paragraph (1-2 sentences, compelling body copy).
+const SYSTEM_PROMPT = `You are an expert advertising copywriter specializing in Meta/Facebook ads. Given a marketing brief, generate exactly 8 ad copy variations. Each variation has:
+- headline (max 12 words, punchy, attention-grabbing)
+- paragraph (1-2 sentences, compelling primary text)
+- cta (short call-to-action button text, 2-5 words, varied per ad — e.g. "Get Started", "See the Data", "Try It Free", "Book a Call", "Download Now")
 
-Respond ONLY with a JSON array of objects, each with "headline" and "paragraph" keys. No markdown, no explanation, just the JSON array.`;
+Vary the CTAs across variations — don't repeat the same CTA. Match the CTA to the ad's angle and intent.
+
+Respond ONLY with a JSON array of objects, each with "headline", "paragraph", and "cta" keys. No markdown, no explanation, just the JSON array.`;
 
 export async function generateAdCopy(
   apiKey: string,
@@ -101,9 +107,11 @@ export async function generateAdCopy(
       typeof (item as Record<string, unknown>).headline === 'string' &&
       typeof (item as Record<string, unknown>).paragraph === 'string'
     ) {
+      const rec = item as Record<string, string>;
       results.push({
-        headline: (item as Record<string, string>).headline,
-        paragraph: (item as Record<string, string>).paragraph,
+        headline: rec.headline,
+        paragraph: rec.paragraph,
+        cta: typeof rec.cta === 'string' ? rec.cta : 'Learn More \u2192',
       });
     }
   }
