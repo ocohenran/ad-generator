@@ -795,6 +795,58 @@ app.post('/api/landing-page/publish', async (req, res) => {
   }
 });
 
+/* ── Keyword extraction (uses server-side ANTHROPIC_API_KEY) ── */
+
+app.post('/api/keywords/extract', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
+
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'Text is required' });
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: `You are a Reddit search keyword expert. Given marketing copy (headlines, value propositions, taglines), extract 6-10 short search queries that real people would use on Reddit when discussing the problems, frustrations, or desires this copy addresses.
+
+Rules:
+- Each query should be 2-5 words — natural Reddit language, not marketing speak
+- Focus on the PAIN POINTS and PROBLEMS implied by the copy, not the product features
+- Include a mix of: frustrated rants, advice-seeking questions, and topic keywords
+- Think about what someone would type into Reddit search BEFORE they know this product exists
+
+Respond ONLY with a JSON array of strings. No markdown, no explanation, just the JSON array.`,
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Claude API returned ${response.status}`);
+    }
+
+    const body = await response.json();
+    const textBlock = body.content?.find((b) => b.type === 'text');
+    let jsonStr = textBlock?.text?.trim() || '[]';
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+    const keywords = JSON.parse(jsonStr).filter((k) => typeof k === 'string');
+    res.json({ keywords });
+  } catch (err) {
+    console.error('Keyword extraction error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Meta Ads backend running on http://localhost:${PORT}`);

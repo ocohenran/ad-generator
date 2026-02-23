@@ -122,3 +122,86 @@ export async function generateAdCopy(
 
   return results;
 }
+
+/* ── Keyword extraction for Reddit research ── */
+
+const KEYWORD_SYSTEM_PROMPT = `You are a Reddit search keyword expert. Given marketing copy (headlines, value propositions, taglines), extract 6-10 short search queries that real people would use on Reddit when discussing the problems, frustrations, or desires this copy addresses.
+
+Rules:
+- Each query should be 2-5 words — natural Reddit language, not marketing speak
+- Focus on the PAIN POINTS and PROBLEMS implied by the copy, not the product features
+- Include a mix of: frustrated rants, advice-seeking questions, and topic keywords
+- Think about what someone would type into Reddit search BEFORE they know this product exists
+
+Respond ONLY with a JSON array of strings. No markdown, no explanation, just the JSON array.`;
+
+export async function extractRedditKeywords(
+  apiKey: string,
+  marketingCopy: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  let response: Response;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: KEYWORD_SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: marketingCopy },
+        ],
+      }),
+      signal,
+    });
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    throw new ClaudeApiError('Network error. Check your connection.', 'network');
+  }
+
+  if (response.status === 401) {
+    throw new ClaudeApiError('Invalid API key. Check your key in Settings.', 'invalid_key');
+  }
+  if (response.status === 429) {
+    throw new ClaudeApiError('Rate limited — wait a moment and try again.', 'rate_limited');
+  }
+  if (!response.ok) {
+    throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
+  }
+
+  const msg = body as { content?: { type: string; text: string }[] };
+  const textBlock = msg.content?.find((b) => b.type === 'text');
+  if (!textBlock?.text) {
+    throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
+  }
+
+  let jsonStr = textBlock.text.trim();
+  const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
+  }
+
+  return parsed.filter((item): item is string => typeof item === 'string');
+}
