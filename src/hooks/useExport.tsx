@@ -254,7 +254,14 @@ export function useExport(opts: ExportOptions) {
     }
   }, [config, format, jpegQuality, ext, activeVariation]);
 
+  const getImageBlob = useCallback(async (): Promise<Blob> => {
+    return renderAndCapture(
+      config, dims, format, jpegQuality,
+      activeVariation?.headline, activeVariation?.paragraph, activeVariation?.cta,
+    );
+  }, [config, dims, format, jpegQuality, activeVariation]);
+
   const clearError = useCallback(() => setExportError(null), []);
 
-  return { exporting, exportProgress, exportError, clearError, exportSingle, exportBulk, exportBatchResize };
+  return { exporting, exportProgress, exportError, clearError, exportSingle, exportBulk, exportBatchResize, getImageBlob };
 }

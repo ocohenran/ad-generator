@@ -28,6 +28,7 @@ interface Props {
   onExportSingle: () => void;
   onExportBulk: () => void;
   onExportBatchResize: () => void;
+  onPublishMeta: () => void;
 }
 
 export const HeaderBar = memo(function HeaderBar(props: Props) {
@@ -38,6 +39,7 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
     filenamePattern, onFilenamePatternChange,
     showExportSettings, onToggleExportSettings, exportDropdownRef,
     exporting, exportProgress, onExportSingle, onExportBulk, onExportBatchResize,
+    onPublishMeta,
   } = props;
 
   return (
@@ -145,6 +147,13 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
           {exporting && exportProgress.total > 0
             ? `Exporting ${exportProgress.current}/${exportProgress.total}...`
             : `Export All (${variationCount}) ZIP`}
+        </button>
+
+        <div className="header-divider" />
+
+        <button className="btn-secondary" onClick={onPublishMeta}
+          style={{ fontSize: 12, background: 'rgba(24,119,242,0.15)', borderColor: 'rgba(24,119,242,0.4)' }}>
+          Publish to Meta
         </button>
       </div>
     </header>

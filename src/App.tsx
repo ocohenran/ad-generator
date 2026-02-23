@@ -10,6 +10,7 @@ import { ComparisonMode } from './components/ComparisonMode';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
 import { ApiKeyModal } from './components/ApiKeyModal';
+import { MetaPublishModal } from './components/MetaPublishModal';
 import { LazyThumb } from './components/LazyThumb';
 import { useHistory } from './hooks/useHistory';
 import { useSaveToStorage, loadFromStorage, loadArrayFromStorage } from './hooks/useLocalStorage';
@@ -50,6 +51,7 @@ function App() {
   const [researchBrief, setResearchBrief] = useState<string | undefined>();
   const [researchState, setResearchState] = useState<ResearchState>(INITIAL_RESEARCH_STATE);
   const [showFeedPreview, setShowFeedPreview] = useState(false);
+  const [showMetaPublish, setShowMetaPublish] = useState(false);
   const [metaCopied, setMetaCopied] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(() => {
     try {
@@ -95,7 +97,7 @@ function App() {
   // Export hook — no renderRef needed, creates offscreen containers on demand
   const {
     exporting, exportProgress, exportError, clearError,
-    exportSingle, exportBulk, exportBatchResize,
+    exportSingle, exportBulk, exportBatchResize, getImageBlob,
   } = useExport({
     config,
     variations,
@@ -183,6 +185,16 @@ function App() {
         {/* Comparison overlay */}
         {showSettings && <ApiKeyModal onClose={() => setShowSettings(false)} />}
 
+        {showMetaPublish && (
+          <MetaPublishModal
+            onClose={() => setShowMetaPublish(false)}
+            getImageBlob={getImageBlob}
+            headline={activeVariation?.headline ?? config.headline}
+            body={activeVariation?.paragraph ?? config.paragraph}
+            ctaText={activeVariation?.cta ?? config.ctaText}
+          />
+        )}
+
         {showComparison && variations.length >= 2 && (
           <ComparisonMode
             config={config}
@@ -223,6 +235,7 @@ function App() {
           onExportSingle={exportSingle}
           onExportBulk={exportBulk}
           onExportBatchResize={exportBatchResize}
+          onPublishMeta={() => setShowMetaPublish(true)}
         />
 
         <div className="app-body">
