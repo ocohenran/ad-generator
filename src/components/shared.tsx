@@ -60,27 +60,24 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-/** Logo bar with actual logo image — auto-inverts "work" text on dark backgrounds */
+/** Logo bar with actual logo image — picks white or dark logo based on background */
 export function LogoBar({ config, unit, accentColor }: { config: AdConfig; unit: number; accentColor?: string }) {
   const accent = accentColor ?? config.ctaColor;
   const glow = config.accentGlow;
-  // If headline color is light, the background is dark → invert the dark logo text to white
-  // invert(1) flips dark→light, hue-rotate(180deg) restores the orange hue
+  // If headline color is light, the background is dark → use the white logo
   const onDarkBg = luminance(config.headlineColor) > 0.5;
-  const filters = [
-    ...(onDarkBg ? ['invert(1)', 'hue-rotate(180deg)'] : []),
-    ...(glow ? [`drop-shadow(0 0 ${unit * 0.015}px ${accent}60)`] : []),
-  ];
+  const logoSrc = onDarkBg ? '/gwork-logo-white.png' : '/gwork-logo.png';
+  const glowFilter = glow ? `drop-shadow(0 0 ${unit * 0.015}px ${accent}60)` : undefined;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: unit * 0.012 }}>
       <img
-        src="/gwork-logo.png"
+        src={logoSrc}
         alt={config.logoText}
         style={{
           height: unit * 0.038,
           width: 'auto',
           objectFit: 'contain',
-          ...(filters.length ? { filter: filters.join(' ') } : {}),
+          ...(glowFilter ? { filter: glowFilter } : {}),
         }}
       />
     </div>

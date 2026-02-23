@@ -2,7 +2,25 @@ import { useState, useRef } from 'react';
 import { searchReddit, formatQuotesAsBrief } from '../lib/redditApi';
 import type { RedditPost, SavedQuote, RedditSort } from '../lib/redditApi';
 
+export interface ResearchState {
+  query: string;
+  subreddit: string;
+  sort: RedditSort;
+  results: RedditPost[];
+  savedQuotes: SavedQuote[];
+}
+
+export const INITIAL_RESEARCH_STATE: ResearchState = {
+  query: '',
+  subreddit: '',
+  sort: 'relevance',
+  results: [],
+  savedQuotes: [],
+};
+
 interface Props {
+  state: ResearchState;
+  onStateChange: (state: ResearchState) => void;
   onSendToBrief: (brief: string) => void;
 }
 
@@ -25,16 +43,16 @@ function timeAgo(utc: number): string {
   return `${Math.floor(diff / 2592000)}mo ago`;
 }
 
-export function ResearchPanel({ onSendToBrief }: Props) {
-  const [query, setQuery] = useState('');
-  const [subreddit, setSubreddit] = useState('');
-  const [sort, setSort] = useState<RedditSort>('relevance');
-  const [results, setResults] = useState<RedditPost[]>([]);
+export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
+  const { query, subreddit, sort, results, savedQuotes } = state;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>([]);
   const [quotesExpanded, setQuotesExpanded] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+
+  const patch = (partial: Partial<ResearchState>) => {
+    onStateChange({ ...state, ...partial });
+  };
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -52,7 +70,7 @@ export function ResearchPanel({ onSendToBrief }: Props) {
         { subreddit: subreddit.trim() || undefined, sort },
         controller.signal,
       );
-      setResults(posts);
+      patch({ results: posts });
     } catch (err) {
       if (controller.signal.aborted) return;
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -67,22 +85,24 @@ export function ResearchPanel({ onSendToBrief }: Props) {
 
   const saveQuote = (post: RedditPost) => {
     if (savedQuotes.some((q) => q.id === post.id)) return;
-    setSavedQuotes((prev) => [
-      ...prev,
-      {
-        id: post.id,
-        text: post.selftext
-          ? `${post.title} — ${snippet(post.selftext, 150)}`
-          : post.title,
-        subreddit: post.subreddit,
-        postTitle: post.title,
-        score: post.score,
-      },
-    ]);
+    patch({
+      savedQuotes: [
+        ...savedQuotes,
+        {
+          id: post.id,
+          text: post.selftext
+            ? `${post.title} — ${snippet(post.selftext, 150)}`
+            : post.title,
+          subreddit: post.subreddit,
+          postTitle: post.title,
+          score: post.score,
+        },
+      ],
+    });
   };
 
   const removeQuote = (id: string) => {
-    setSavedQuotes((prev) => prev.filter((q) => q.id !== id));
+    patch({ savedQuotes: savedQuotes.filter((q) => q.id !== id) });
   };
 
   const sendToBrainstormer = () => {
@@ -99,7 +119,7 @@ export function ResearchPanel({ onSendToBrief }: Props) {
         <input
           className="editor-input"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => patch({ query: e.target.value })}
           onKeyDown={handleKeyDown}
           placeholder='e.g. "employee engagement software frustrations"'
           style={{ fontSize: 12 }}
@@ -111,7 +131,7 @@ export function ResearchPanel({ onSendToBrief }: Props) {
         <input
           className="editor-input"
           value={subreddit}
-          onChange={(e) => setSubreddit(e.target.value)}
+          onChange={(e) => patch({ subreddit: e.target.value })}
           onKeyDown={handleKeyDown}
           placeholder="e.g. humanresources, peopleops"
           style={{ fontSize: 12 }}
@@ -124,7 +144,7 @@ export function ResearchPanel({ onSendToBrief }: Props) {
           <button
             key={s.key}
             className={`template-btn ${sort === s.key ? 'active' : ''}`}
-            onClick={() => setSort(s.key)}
+            onClick={() => patch({ sort: s.key })}
             style={{ fontSize: 12 }}
           >
             {s.label}

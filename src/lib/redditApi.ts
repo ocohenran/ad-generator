@@ -55,10 +55,10 @@ export async function searchReddit(
   let url: string;
   if (subreddit) {
     params.set('restrict_sr', 'on');
-    url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/search.json?${params}`;
+    url = `/api/reddit/r/${encodeURIComponent(subreddit)}/search.json?${params}`;
   } else {
     params.set('restrict_sr', 'false');
-    url = `https://www.reddit.com/search.json?${params}`;
+    url = `/api/reddit/search.json?${params}`;
   }
 
   const res = await fetch(url, {

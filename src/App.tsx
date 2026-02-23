@@ -3,7 +3,9 @@ import { AdPreview } from './components/AdPreview';
 import { EditorPanel } from './components/EditorPanel';
 import { BulkPanel } from './components/BulkPanel';
 import { BrainstormPanel } from './components/BrainstormPanel';
-import { ResearchPanel } from './components/ResearchPanel';
+import { ResearchPanel, INITIAL_RESEARCH_STATE } from './components/ResearchPanel';
+import type { ResearchState } from './components/ResearchPanel';
+import { MetaFeedPreview } from './components/MetaFeedPreview';
 import { ComparisonMode } from './components/ComparisonMode';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
@@ -46,6 +48,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [activeVariation, setActiveVariation] = useState<AdVariation | null>(null);
   const [researchBrief, setResearchBrief] = useState<string | undefined>();
+  const [researchState, setResearchState] = useState<ResearchState>(INITIAL_RESEARCH_STATE);
+  const [showFeedPreview, setShowFeedPreview] = useState(false);
   const [metaCopied, setMetaCopied] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(() => {
     try {
@@ -183,7 +187,13 @@ function App() {
           <ComparisonMode
             config={config}
             variations={variations}
+            likedIds={likedIds}
             onClose={() => setShowComparison(false)}
+            onExportLiked={() => {
+              const liked = variations.filter((v) => likedIds.has(v.id));
+              if (liked.length === 0) return;
+              exportBulk();
+            }}
           />
         )}
 
@@ -236,7 +246,13 @@ function App() {
               </div>
 
               <div className="sidebar-content" role="tabpanel">
-                {activeTab === 'research' && <ResearchPanel onSendToBrief={handleSendToBrief} />}
+                {activeTab === 'research' && (
+                  <ResearchPanel
+                    state={researchState}
+                    onStateChange={setResearchState}
+                    onSendToBrief={handleSendToBrief}
+                  />
+                )}
                 {activeTab === 'editor' && <EditorPanel config={config} onChange={setConfig} />}
                 {activeTab === 'bulk' && <BulkPanel variations={variations} onVariationsChange={setVariations} />}
                 {activeTab === 'brainstorm' && (
@@ -266,24 +282,50 @@ function App() {
               Live Preview &mdash; {dims.w} &times; {dims.h}
               {activeVariation && <span style={{ color: 'var(--accent)' }}>(Variation selected)</span>}
               <button
+                className={`btn-secondary ${showFeedPreview ? 'active' : ''}`}
+                onClick={() => setShowFeedPreview((p) => !p)}
+                style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 10px' }}
+              >
+                {showFeedPreview ? 'Canvas View' : 'Feed Preview'}
+              </button>
+              <button
                 className="btn-secondary"
                 onClick={handleCopyToMeta}
-                style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 10px' }}
+                style={{ fontSize: 11, padding: '2px 10px' }}
               >
                 {metaCopied ? 'Copied!' : 'Copy for Meta'}
               </button>
+              {likedIds.size >= 2 && (
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowComparison(true)}
+                  style={{ fontSize: 11, padding: '2px 10px', color: 'var(--accent)' }}
+                >
+                  Compare Liked ({likedIds.size})
+                </button>
+              )}
               <span className="shortcut-hint">Ctrl+Z undo &middot; Ctrl+S export</span>
             </div>
             <div className="preview-container">
               <div className="preview-scaled" style={{ transition: 'all 0.3s ease' }}>
                 <ErrorBoundary>
-                  <AdPreview
-                    config={config}
-                    headline={activeVariation?.headline}
-                    paragraph={activeVariation?.paragraph}
-                    cta={activeVariation?.cta}
-                    scale={previewScale}
-                  />
+                  {showFeedPreview ? (
+                    <MetaFeedPreview
+                      config={config}
+                      headline={activeVariation?.headline}
+                      paragraph={activeVariation?.paragraph}
+                      cta={activeVariation?.cta}
+                      scale={previewScale}
+                    />
+                  ) : (
+                    <AdPreview
+                      config={config}
+                      headline={activeVariation?.headline}
+                      paragraph={activeVariation?.paragraph}
+                      cta={activeVariation?.cta}
+                      scale={previewScale}
+                    />
+                  )}
                 </ErrorBoundary>
               </div>
             </div>

@@ -5,10 +5,12 @@ import { AdPreview } from './AdPreview';
 interface Props {
   config: AdConfig;
   variations: AdVariation[];
+  likedIds?: Set<string>;
   onClose: () => void;
+  onExportLiked?: () => void;
 }
 
-export function ComparisonMode({ config, variations, onClose }: Props) {
+export function ComparisonMode({ config, variations, likedIds, onClose, onExportLiked }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<Element | null>(null);
 
@@ -66,7 +68,12 @@ export function ComparisonMode({ config, variations, onClose }: Props) {
     return m;
   }, [variations]);
 
+  // Pre-select liked variations if >= 2, otherwise fall back to first 4
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => {
+    if (likedIds && likedIds.size >= 2) {
+      const liked = [...likedIds].filter((id) => variations.some((v) => v.id === id)).slice(0, 4);
+      if (liked.length >= 2) return new Set(liked);
+    }
     const ids = variations.slice(0, Math.min(4, variations.length)).map((v) => v.id);
     return new Set(ids);
   });
@@ -85,6 +92,7 @@ export function ComparisonMode({ config, variations, onClose }: Props) {
 
   const selected = variations.filter((v) => selectedIds.has(v.id));
   const cols = selected.length <= 2 ? selected.length : 2;
+  const hasLiked = likedIds && likedIds.size > 0;
 
   return (
     <div
@@ -99,31 +107,41 @@ export function ComparisonMode({ config, variations, onClose }: Props) {
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)' }}>
           Compare Variations ({selected.length}/4)
         </h2>
-        <button className="btn-secondary" onClick={onClose}>Close</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {hasLiked && onExportLiked && (
+            <button className="btn-secondary" onClick={onExportLiked} style={{ fontSize: 12 }}>
+              Export Liked
+            </button>
+          )}
+          <button className="btn-secondary" onClick={onClose}>Close</button>
+        </div>
       </div>
 
       {/* Selector */}
       <div className="comparison-selector">
-        {variations.map((v, i) => (
-          <label
-            key={v.id}
-            className="comparison-chip"
-            style={{
-              borderColor: selectedIds.has(v.id) ? 'var(--accent)' : 'var(--border)',
-              background: selectedIds.has(v.id) ? 'var(--accent-soft)' : 'transparent',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={selectedIds.has(v.id)}
-              onChange={() => toggle(v.id)}
-              className="sr-only"
-            />
-            <span style={{ fontSize: 12, color: selectedIds.has(v.id) ? 'var(--text-secondary)' : 'var(--text-dim)' }}>
-              #{i + 1} {v.headline.slice(0, 30)}{v.headline.length > 30 ? '\u2026' : ''}
-            </span>
-          </label>
-        ))}
+        {variations.map((v, i) => {
+          const isLiked = likedIds?.has(v.id);
+          return (
+            <label
+              key={v.id}
+              className="comparison-chip"
+              style={{
+                borderColor: selectedIds.has(v.id) ? 'var(--accent)' : 'var(--border)',
+                background: selectedIds.has(v.id) ? 'var(--accent-soft)' : 'transparent',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.has(v.id)}
+                onChange={() => toggle(v.id)}
+                className="sr-only"
+              />
+              <span style={{ fontSize: 12, color: selectedIds.has(v.id) ? 'var(--text-secondary)' : 'var(--text-dim)' }}>
+                {isLiked ? '\u2764 ' : ''}#{i + 1} {v.headline.slice(0, 30)}{v.headline.length > 30 ? '\u2026' : ''}
+              </span>
+            </label>
+          );
+        })}
       </div>
 
       {/* Grid of previews */}
@@ -133,7 +151,8 @@ export function ComparisonMode({ config, variations, onClose }: Props) {
       >
         {selected.map((v) => (
           <div key={v.id} className="comparison-card">
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '8px 12px', fontWeight: 600 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '8px 12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {likedIds?.has(v.id) && <span style={{ color: 'var(--danger, #ef4444)' }}>{'\u2764'}</span>}
               Variation #{(indexMap.get(v.id) ?? 0) + 1}
             </div>
             <div style={{ overflow: 'hidden', lineHeight: 0, display: 'flex', justifyContent: 'center' }}>

@@ -30,12 +30,42 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function CharCount({ value, limit, label }: { value: string; limit: number; label: string }) {
+function CharCount({ value, limit, label, onTruncate }: { value: string; limit: number; label: string; onTruncate?: () => void }) {
   const len = value.length;
   const color = len <= limit ? 'var(--success, #22c55e)' : len <= limit * 1.2 ? 'var(--warning, #f59e0b)' : 'var(--danger, #ef4444)';
   return (
-    <span style={{ fontSize: 11, color, marginTop: 2, display: 'block' }}>
+    <span style={{ fontSize: 11, color, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
       {len}/{limit} chars {len > limit ? `(${label} truncates at ${limit})` : ''}
+      {len > limit && onTruncate && (
+        <button
+          onClick={onTruncate}
+          style={{
+            fontSize: 10, padding: '1px 6px', borderRadius: 4,
+            background: 'var(--danger, #ef4444)', color: '#fff',
+            border: 'none', cursor: 'pointer', fontWeight: 600,
+          }}
+        >
+          Trim
+        </button>
+      )}
+    </span>
+  );
+}
+
+function truncateAtWord(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const trimmed = text.slice(0, limit);
+  const lastSpace = trimmed.lastIndexOf(' ');
+  return lastSpace > limit * 0.6 ? trimmed.slice(0, lastSpace) : trimmed;
+}
+
+function PresetSwatch({ preset }: { preset: AdConfig }) {
+  const colors = [preset.gradientFrom, preset.gradientMid ?? preset.gradientFrom, preset.gradientTo, preset.ctaColor];
+  return (
+    <span style={{ display: 'inline-flex', gap: 1, marginRight: 4, verticalAlign: 'middle' }}>
+      {colors.map((c, i) => (
+        <span key={i} style={{ width: 8, height: 8, borderRadius: 2, background: c, display: 'inline-block' }} />
+      ))}
     </span>
   );
 }
@@ -86,6 +116,7 @@ const RATIOS: { key: AspectRatio; label: string }[] = [
 
 export function EditorPanel({ config, onChange }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const [customPresets, setCustomPresets] = useState<Record<string, AdConfig>>(loadPresets);
   const allPresets = { ...BUILTIN_PRESETS, ...customPresets };
 
@@ -111,6 +142,33 @@ export function EditorPanel({ config, onChange }: Props) {
       delete next[name];
       return next;
     });
+  };
+
+  const handleExportPresets = () => {
+    const data = JSON.stringify({ ...BUILTIN_PRESETS, ...customPresets }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ad-presets.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportPresets = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result as string) as Record<string, AdConfig>;
+        setCustomPresets((prev) => ({ ...prev, ...imported }));
+      } catch {
+        alert('Invalid preset file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const update = <K extends keyof AdConfig>(key: K, value: AdConfig[K]) => {
@@ -156,13 +214,14 @@ export function EditorPanel({ config, onChange }: Props) {
       {/* Presets */}
       <Section label="Presets">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {Object.keys(allPresets).map((name) => (
+          {Object.entries(allPresets).map(([name, preset]) => (
             <span key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
               <button
                 className="template-btn"
                 onClick={() => handleLoadPreset(name)}
                 style={{ fontSize: 11 }}
               >
+                <PresetSwatch preset={preset} />
                 {name}
               </button>
               {!(name in BUILTIN_PRESETS) && (
@@ -181,6 +240,13 @@ export function EditorPanel({ config, onChange }: Props) {
           ))}
           <button className="btn-secondary" onClick={handleSavePreset} style={{ fontSize: 11, padding: '3px 8px' }}>
             Save As...
+          </button>
+          <button className="btn-secondary" onClick={handleExportPresets} style={{ fontSize: 11, padding: '3px 8px' }}>
+            Export
+          </button>
+          <input ref={importRef} type="file" accept=".json" onChange={handleImportPresets} style={{ display: 'none' }} />
+          <button className="btn-secondary" onClick={() => importRef.current?.click()} style={{ fontSize: 11, padding: '3px 8px' }}>
+            Import
           </button>
         </div>
       </Section>
@@ -374,14 +440,16 @@ export function EditorPanel({ config, onChange }: Props) {
       <Section label="Headline">
         <textarea className="editor-input" rows={2} value={config.headline}
           onChange={(e) => update('headline', e.target.value)} placeholder="Ad headline" />
-        <CharCount value={config.headline} limit={40} label="Meta headline" />
+        <CharCount value={config.headline} limit={40} label="Meta headline"
+          onTruncate={() => update('headline', truncateAtWord(config.headline, 40))} />
       </Section>
 
       {/* Paragraph */}
       <Section label="Supporting Text">
         <textarea className="editor-input" rows={3} value={config.paragraph}
           onChange={(e) => update('paragraph', e.target.value)} placeholder="Supporting paragraph" />
-        <CharCount value={config.paragraph} limit={125} label="Meta primary text" />
+        <CharCount value={config.paragraph} limit={125} label="Meta primary text"
+          onTruncate={() => update('paragraph', truncateAtWord(config.paragraph, 125))} />
       </Section>
 
       {/* CTA */}
