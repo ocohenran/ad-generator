@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOKEN_FILE = join(__dirname, '.meta-token.json');
+const PUBLICATIONS_FILE = join(__dirname, 'data', 'publications.json');
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173' }));
@@ -21,6 +22,9 @@ const {
   META_APP_SECRET,
   META_AD_ACCOUNT_ID,
   META_REDIRECT_URI,
+  WP_URL,
+  WP_USER,
+  WP_APP_PASSWORD,
 } = process.env;
 
 const GRAPH_API = 'https://graph.facebook.com/v21.0';
@@ -65,6 +69,19 @@ function loadToken() {
 
 function saveToken(data) {
   writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+}
+
+function loadPublications() {
+  try {
+    if (existsSync(PUBLICATIONS_FILE)) {
+      return JSON.parse(readFileSync(PUBLICATIONS_FILE, 'utf-8'));
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function savePublications(data) {
+  writeFileSync(PUBLICATIONS_FILE, JSON.stringify(data, null, 2));
 }
 
 let tokenData = loadToken(); // { accessToken, userName, expiresAt }
@@ -338,6 +355,277 @@ app.get('/api/meta/pages', async (_req, res) => {
     res.json({ pages });
   } catch (err) {
     console.error('Pages fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Track a published ad
+app.post('/api/meta/track-publish', (req, res) => {
+  const { variationId, adId, campaignId, adSetId, headline, body, ctaText } = req.body;
+  if (!variationId || !adId) {
+    return res.status(400).json({ error: 'variationId and adId are required' });
+  }
+
+  const publications = loadPublications();
+  publications.push({
+    variationId,
+    adId,
+    campaignId: campaignId || '',
+    adSetId: adSetId || '',
+    headline: headline || '',
+    body: body || '',
+    ctaText: ctaText || '',
+    publishedAt: Date.now(),
+  });
+  savePublications(publications);
+  res.json({ ok: true });
+});
+
+// Get insights for all tracked publications
+app.get('/api/meta/insights', async (req, res) => {
+  if (!tokenData?.accessToken) {
+    return res.status(401).json({ error: 'Not connected to Meta' });
+  }
+
+  const publications = loadPublications();
+  if (publications.length === 0) {
+    return res.json([]);
+  }
+
+  const { campaignId } = req.query;
+  const filtered = campaignId
+    ? publications.filter((p) => p.campaignId === campaignId)
+    : publications;
+
+  const results = await Promise.all(
+    filtered.map(async (pub) => {
+      try {
+        // Fetch ad status
+        const adInfo = await graphFetch(
+          `${GRAPH_API}/${pub.adId}?fields=status&access_token=${tokenData.accessToken}`
+        );
+
+        // Fetch insights
+        let metrics = null;
+        try {
+          const insights = await graphFetch(
+            `${GRAPH_API}/${pub.adId}/insights?fields=spend,impressions,clicks,ctr,cpc,actions&access_token=${tokenData.accessToken}`
+          );
+          const data = insights.data?.[0];
+          if (data) {
+            const conversions = (data.actions || [])
+              .filter((a) => a.action_type === 'offsite_conversion' || a.action_type === 'lead')
+              .reduce((sum, a) => sum + parseInt(a.value || '0', 10), 0);
+            metrics = {
+              spend: parseFloat(data.spend || '0'),
+              impressions: parseInt(data.impressions || '0', 10),
+              clicks: parseInt(data.clicks || '0', 10),
+              ctr: parseFloat(data.ctr || '0'),
+              cpc: parseFloat(data.cpc || '0'),
+              conversions,
+            };
+          }
+        } catch {
+          // No insights yet (ad just published or paused)
+        }
+
+        return {
+          ...pub,
+          metrics,
+          status: adInfo.status || 'UNKNOWN',
+        };
+      } catch (err) {
+        // Ad might have been deleted
+        return {
+          ...pub,
+          metrics: null,
+          status: 'DELETED',
+        };
+      }
+    })
+  );
+
+  res.json(results);
+});
+
+// --- WordPress Landing Page ---
+
+function contentToGutenberg(content) {
+  const lines = [];
+
+  // H1
+  lines.push(`<!-- wp:heading {"level":1} -->`);
+  lines.push(`<h1 class="wp-block-heading">${escapeHtml(content.title)}</h1>`);
+  lines.push(`<!-- /wp:heading -->`);
+
+  // Subheadline
+  lines.push(`<!-- wp:paragraph {"fontSize":"large"} -->`);
+  lines.push(`<p class="has-large-font-size"><strong>${escapeHtml(content.subheadline)}</strong></p>`);
+  lines.push(`<!-- /wp:paragraph -->`);
+
+  // Hero text
+  lines.push(`<!-- wp:paragraph -->`);
+  lines.push(`<p>${escapeHtml(content.heroText)}</p>`);
+  lines.push(`<!-- /wp:paragraph -->`);
+
+  // Benefits
+  lines.push(`<!-- wp:heading {"level":2} -->`);
+  lines.push(`<h2 class="wp-block-heading">Why It Works</h2>`);
+  lines.push(`<!-- /wp:heading -->`);
+
+  for (const benefit of content.benefits || []) {
+    lines.push(`<!-- wp:heading {"level":3} -->`);
+    lines.push(`<h3 class="wp-block-heading">${escapeHtml(benefit.heading)}</h3>`);
+    lines.push(`<!-- /wp:heading -->`);
+    lines.push(`<!-- wp:paragraph -->`);
+    lines.push(`<p>${escapeHtml(benefit.body)}</p>`);
+    lines.push(`<!-- /wp:paragraph -->`);
+  }
+
+  // CTA section
+  lines.push(`<!-- wp:heading {"level":2} -->`);
+  lines.push(`<h2 class="wp-block-heading">${escapeHtml(content.ctaHeading)}</h2>`);
+  lines.push(`<!-- /wp:heading -->`);
+  lines.push(`<!-- wp:paragraph -->`);
+  lines.push(`<p>${escapeHtml(content.ctaBody)}</p>`);
+  lines.push(`<!-- /wp:paragraph -->`);
+  lines.push(`<!-- wp:buttons -->`);
+  lines.push(`<div class="wp-block-buttons"><!-- wp:button -->`);
+  lines.push(`<div class="wp-block-button"><a class="wp-block-button__link wp-element-button">${escapeHtml(content.ctaButton)}</a></div>`);
+  lines.push(`<!-- /wp:button --></div>`);
+  lines.push(`<!-- /wp:buttons -->`);
+
+  // FAQs
+  if (content.faqs && content.faqs.length > 0) {
+    lines.push(`<!-- wp:heading {"level":2} -->`);
+    lines.push(`<h2 class="wp-block-heading">Frequently Asked Questions</h2>`);
+    lines.push(`<!-- /wp:heading -->`);
+
+    for (const faq of content.faqs) {
+      lines.push(`<!-- wp:heading {"level":3} -->`);
+      lines.push(`<h3 class="wp-block-heading">${escapeHtml(faq.question)}</h3>`);
+      lines.push(`<!-- /wp:heading -->`);
+      lines.push(`<!-- wp:paragraph -->`);
+      lines.push(`<p>${escapeHtml(faq.answer)}</p>`);
+      lines.push(`<!-- /wp:paragraph -->`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function xmlEscape(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function updateYoastSEO(pageId, seo) {
+  if (!WP_URL || !WP_USER || !WP_APP_PASSWORD) {
+    throw new Error('WordPress credentials not configured');
+  }
+
+  const fields = [
+    { key: '_yoast_wpseo_title', value: seo.metaTitle || '' },
+    { key: '_yoast_wpseo_metadesc', value: seo.metaDescription || '' },
+    { key: '_yoast_wpseo_focuskw', value: seo.focusKeyword || '' },
+  ].filter(f => f.value);
+
+  if (fields.length === 0) return;
+
+  const fieldsXml = fields.map(f =>
+    `<value><struct>` +
+    `<member><name>key</name><value><string>${xmlEscape(f.key)}</string></value></member>` +
+    `<member><name>value</name><value><string>${xmlEscape(f.value)}</string></value></member>` +
+    `</struct></value>`
+  ).join('\n');
+
+  const xmlBody = `<?xml version="1.0"?>
+<methodCall>
+  <methodName>wp.editPost</methodName>
+  <params>
+    <param><value><int>1</int></value></param>
+    <param><value><string>${WP_USER}</string></value></param>
+    <param><value><string>${WP_APP_PASSWORD}</string></value></param>
+    <param><value><int>${pageId}</int></value></param>
+    <param><value><struct>
+      <member><name>custom_fields</name><value><array><data>
+        ${fieldsXml}
+      </data></array></value></member>
+    </struct></value></param>
+  </params>
+</methodCall>`;
+
+  const res = await fetch(`${WP_URL}/xmlrpc.php`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/xml' },
+    body: xmlBody,
+  });
+
+  const text = await res.text();
+  if (text.includes('<fault>')) {
+    const msg = text.match(/<string>(.*?)<\/string>/)?.[1] || 'Yoast SEO update failed';
+    throw new Error(msg);
+  }
+}
+
+app.post('/api/landing-page/publish', async (req, res) => {
+  if (!WP_URL || !WP_USER || !WP_APP_PASSWORD) {
+    return res.status(500).json({ error: 'WordPress credentials not configured. Set WP_URL, WP_USER, WP_APP_PASSWORD in server/.env' });
+  }
+
+  const { content, title, slug, metaTitle, metaDescription, focusKeyword } = req.body;
+  if (!content || !title) {
+    return res.status(400).json({ error: 'content and title are required' });
+  }
+
+  const wpAuth = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
+
+  try {
+    // Build Gutenberg HTML from content
+    const gutenbergHtml = contentToGutenberg(content);
+
+    // Create draft page via WP REST API
+    const createRes = await fetch(`${WP_URL}/wp-json/wp/v2/pages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${wpAuth}`,
+      },
+      body: JSON.stringify({
+        title,
+        content: gutenbergHtml,
+        status: 'draft',
+        slug: slug || '',
+      }),
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}));
+      throw new Error(err.message || `WordPress API returned ${createRes.status}`);
+    }
+
+    const page = await createRes.json();
+    const pageId = page.id;
+
+    // Set Yoast SEO fields via XML-RPC
+    try {
+      await updateYoastSEO(pageId, { metaTitle, metaDescription, focusKeyword });
+    } catch (yoastErr) {
+      console.error('Yoast SEO update failed (non-critical):', yoastErr.message);
+    }
+
+    res.json({
+      pageId,
+      editUrl: `${WP_URL}/wp-admin/post.php?post=${pageId}&action=edit`,
+      previewUrl: page.link ? `${page.link}?preview=true` : '',
+    });
+  } catch (err) {
+    console.error('Landing page publish error:', err);
     res.status(500).json({ error: err.message });
   }
 });

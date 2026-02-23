@@ -64,6 +64,31 @@ export interface PublishResult {
   adsManagerUrl: string;
 }
 
+export interface PublishedAd {
+  variationId: string;
+  adId: string;
+  campaignId: string;
+  adSetId: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+  publishedAt: number;
+}
+
+export interface AdMetrics {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  conversions: number;
+}
+
+export interface PublishedAdWithMetrics extends PublishedAd {
+  metrics: AdMetrics | null;
+  status: 'ACTIVE' | 'PAUSED' | 'DELETED' | 'UNKNOWN';
+}
+
 export async function getMetaStatus(): Promise<MetaStatus> {
   const res = await fetch('/api/meta/status');
   return res.json();
@@ -154,4 +179,34 @@ export async function createMetaAd(
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
+}
+
+export async function getAdInsights(campaignId?: string): Promise<PublishedAdWithMetrics[]> {
+  const url = campaignId
+    ? `/api/meta/insights?campaignId=${encodeURIComponent(campaignId)}`
+    : '/api/meta/insights';
+  const res = await fetch(url);
+  if (!res.ok) {
+    if (res.status === 401) return [];
+    throw new Error('Failed to fetch insights');
+  }
+  return res.json();
+}
+
+export async function trackPublication(data: {
+  variationId: string;
+  adId: string;
+  campaignId: string;
+  adSetId: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+}): Promise<void> {
+  const res = await fetch('/api/meta/track-publish', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
 }

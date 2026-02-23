@@ -21,6 +21,10 @@ export default defineConfig({
         target: 'http://localhost:3002',
         changeOrigin: true,
       },
+      '/api/landing-page': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      },
     },
   },
 })

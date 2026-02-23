@@ -11,6 +11,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { MetaPublishModal } from './components/MetaPublishModal';
+import { LandingPageModal } from './components/LandingPageModal';
+import { PerformancePanel } from './components/PerformancePanel';
+import type { PublishedAdWithMetrics } from './lib/metaApi';
 import { LazyThumb } from './components/LazyThumb';
 import { useHistory } from './hooks/useHistory';
 import { useSaveToStorage, loadFromStorage, loadArrayFromStorage } from './hooks/useLocalStorage';
@@ -20,7 +23,7 @@ import { DEFAULT_CONFIG, SAMPLE_VARIATIONS, ASPECT_DIMENSIONS } from './types';
 import type { AdVariation, Theme } from './types';
 import './App.css';
 
-type Tab = 'editor' | 'bulk' | 'brainstorm' | 'research';
+type Tab = 'editor' | 'bulk' | 'brainstorm' | 'research' | 'performance';
 
 function App() {
   const {
@@ -52,6 +55,7 @@ function App() {
   const [researchState, setResearchState] = useState<ResearchState>(INITIAL_RESEARCH_STATE);
   const [showFeedPreview, setShowFeedPreview] = useState(false);
   const [showMetaPublish, setShowMetaPublish] = useState(false);
+  const [landingPageAd, setLandingPageAd] = useState<PublishedAdWithMetrics | null>(null);
   const [metaCopied, setMetaCopied] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(() => {
     try {
@@ -158,6 +162,11 @@ function App() {
     setActiveTab('brainstorm');
   }, []);
 
+  const handleRemixWinner = useCallback((brief: string) => {
+    setResearchBrief(brief);
+    setActiveTab('brainstorm');
+  }, []);
+
   const handleCopyToMeta = useCallback(() => {
     const h = activeVariation?.headline ?? config.headline;
     const p = activeVariation?.paragraph ?? config.paragraph;
@@ -185,6 +194,13 @@ function App() {
         {/* Comparison overlay */}
         {showSettings && <ApiKeyModal onClose={() => setShowSettings(false)} />}
 
+        {landingPageAd && (
+          <LandingPageModal
+            ad={landingPageAd}
+            onClose={() => setLandingPageAd(null)}
+          />
+        )}
+
         {showMetaPublish && (
           <MetaPublishModal
             onClose={() => setShowMetaPublish(false)}
@@ -192,6 +208,7 @@ function App() {
             headline={activeVariation?.headline ?? config.headline}
             body={activeVariation?.paragraph ?? config.paragraph}
             ctaText={activeVariation?.cta ?? config.ctaText}
+            variationId={activeVariation?.id}
           />
         )}
 
@@ -243,7 +260,7 @@ function App() {
           {!sidebarCollapsed && (
             <aside className="sidebar">
               <div className="tab-bar" role="tablist">
-                {([['research', 'Research'], ['editor', 'Template'], ['bulk', 'Bulk Generate'], ['brainstorm', 'Brainstorm']] as const).map(
+                {([['research', 'Research'], ['editor', 'Template'], ['bulk', 'Bulk Generate'], ['brainstorm', 'Brainstorm'], ['performance', 'Performance']] as const).map(
                   ([key, label]) => (
                     <button
                       key={key}
@@ -274,6 +291,9 @@ function App() {
                     initialBrief={researchBrief}
                     likedVariations={likedVariations}
                   />
+                )}
+                {activeTab === 'performance' && (
+                  <PerformancePanel onRemixWinner={handleRemixWinner} onGenerateLandingPage={setLandingPageAd} />
                 )}
               </div>
             </aside>

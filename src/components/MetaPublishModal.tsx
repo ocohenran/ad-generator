@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getMetaStatus, startMetaAuth, disconnectMeta, getMetaPages,
-  uploadImageToMeta, createMetaAd,
+  uploadImageToMeta, createMetaAd, trackPublication,
   META_CTA_OPTIONS, COUNTRY_OPTIONS,
   type MetaStatus, type MetaPage, type PublishResult,
 } from '../lib/metaApi';
@@ -12,11 +12,12 @@ interface Props {
   headline: string;
   body: string;
   ctaText: string;
+  variationId?: string;
 }
 
 type Step = 'idle' | 'uploading' | 'creating-campaign' | 'creating-ad' | 'done' | 'error';
 
-export function MetaPublishModal({ onClose, getImageBlob, headline, body, ctaText }: Props) {
+export function MetaPublishModal({ onClose, getImageBlob, headline, body, ctaText, variationId }: Props) {
   const [status, setStatus] = useState<MetaStatus>({ connected: false });
   const [pages, setPages] = useState<MetaPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +98,21 @@ export function MetaPublishModal({ onClose, getImageBlob, headline, body, ctaTex
         pageId: selectedPage,
         countries: selectedCountries,
       });
+
+      // Track publication for performance monitoring
+      try {
+        await trackPublication({
+          variationId: variationId || crypto.randomUUID(),
+          adId: publishResult.adId,
+          campaignId: publishResult.campaignId,
+          adSetId: publishResult.adSetId,
+          headline,
+          body,
+          ctaText: selectedCta,
+        });
+      } catch {
+        // Non-critical — don't fail the publish flow
+      }
 
       setStep('done');
       setResult(publishResult);
