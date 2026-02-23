@@ -29,6 +29,7 @@ interface Props {
   onExportBulk: () => void;
   onExportBatchResize: () => void;
   onPublishMeta: () => void;
+  onBulkPublishMeta: () => void;
 }
 
 export const HeaderBar = memo(function HeaderBar(props: Props) {
@@ -40,6 +41,7 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
     showExportSettings, onToggleExportSettings, exportDropdownRef,
     exporting, exportProgress, onExportSingle, onExportBulk, onExportBatchResize,
     onPublishMeta,
+    onBulkPublishMeta,
   } = props;
 
   return (
@@ -154,6 +156,11 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
         <button className="btn-secondary" onClick={onPublishMeta}
           style={{ fontSize: 12, background: 'rgba(24,119,242,0.15)', borderColor: 'rgba(24,119,242,0.4)' }}>
           Publish to Meta
+        </button>
+        <button className="btn-secondary" onClick={onBulkPublishMeta}
+          disabled={variationCount < 2}
+          style={{ fontSize: 12, background: 'rgba(24,119,242,0.25)', borderColor: 'rgba(24,119,242,0.5)', fontWeight: 600 }}>
+          Bulk Publish ({variationCount})
         </button>
       </div>
     </header>

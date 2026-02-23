@@ -181,6 +181,42 @@ export async function createMetaAd(
   return data;
 }
 
+export interface BulkAdInput {
+  variationId: string;
+  imageHash: string;
+  headline: string;
+  body: string;
+  ctaText: string;
+}
+
+export interface BulkPublishResult {
+  campaignId: string;
+  adSetId: string;
+  ads: { adId: string; creativeId: string; variationId: string }[];
+  adsManagerUrl: string;
+}
+
+export async function createBulkMetaAds(
+  ads: BulkAdInput[],
+  config: {
+    campaignName: string;
+    dailyBudget: number;
+    linkUrl: string;
+    pageId: string;
+    ctaText: string;
+    countries: string[];
+  },
+): Promise<BulkPublishResult> {
+  const res = await fetch('/api/meta/create-bulk-ads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...config, ads }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
 export async function getAdInsights(campaignId?: string): Promise<PublishedAdWithMetrics[]> {
   const url = campaignId
     ? `/api/meta/insights?campaignId=${encodeURIComponent(campaignId)}`

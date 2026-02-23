@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { HeaderBar } from './components/HeaderBar';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { MetaPublishModal } from './components/MetaPublishModal';
+import { BulkMetaPublishModal } from './components/BulkMetaPublishModal';
 import { LandingPageModal } from './components/LandingPageModal';
 import { PerformancePanel } from './components/PerformancePanel';
 import type { PublishedAdWithMetrics } from './lib/metaApi';
@@ -55,6 +56,7 @@ function App() {
   const [researchState, setResearchState] = useState<ResearchState>(INITIAL_RESEARCH_STATE);
   const [showFeedPreview, setShowFeedPreview] = useState(false);
   const [showMetaPublish, setShowMetaPublish] = useState(false);
+  const [showBulkMetaPublish, setShowBulkMetaPublish] = useState(false);
   const [landingPageAd, setLandingPageAd] = useState<PublishedAdWithMetrics | null>(null);
   const [metaCopied, setMetaCopied] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(() => {
@@ -101,7 +103,7 @@ function App() {
   // Export hook — no renderRef needed, creates offscreen containers on demand
   const {
     exporting, exportProgress, exportError, clearError,
-    exportSingle, exportBulk, exportBatchResize, getImageBlob,
+    exportSingle, exportBulk, exportBatchResize, getImageBlob, getVariationBlob,
   } = useExport({
     config,
     variations,
@@ -212,6 +214,15 @@ function App() {
           />
         )}
 
+        {showBulkMetaPublish && (
+          <BulkMetaPublishModal
+            onClose={() => setShowBulkMetaPublish(false)}
+            variations={variations}
+            config={config}
+            getVariationBlob={getVariationBlob}
+          />
+        )}
+
         {showComparison && variations.length >= 2 && (
           <ComparisonMode
             config={config}
@@ -253,6 +264,7 @@ function App() {
           onExportBulk={exportBulk}
           onExportBatchResize={exportBatchResize}
           onPublishMeta={() => setShowMetaPublish(true)}
+          onBulkPublishMeta={() => setShowBulkMetaPublish(true)}
         />
 
         <div className="app-body">

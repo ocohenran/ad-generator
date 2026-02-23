@@ -343,6 +343,153 @@ app.post('/api/meta/create-ad', async (req, res) => {
   }
 });
 
+// Create bulk ads: 1 campaign + 1 ad set + N ads (each with own creative)
+app.post('/api/meta/create-bulk-ads', async (req, res) => {
+  if (!tokenData?.accessToken) {
+    return res.status(401).json({ error: 'Not connected to Meta' });
+  }
+
+  const {
+    campaignName,
+    dailyBudget,
+    linkUrl,
+    pageId,
+    ctaText,
+    countries,
+    ads,
+  } = req.body;
+
+  if (!Array.isArray(ads) || ads.length === 0) {
+    return res.status(400).json({ error: 'ads array is required and must not be empty' });
+  }
+  if (ads.length > 10) {
+    return res.status(400).json({ error: 'Maximum 10 ads per bulk publish' });
+  }
+
+  const token = tokenData.accessToken;
+  const actId = `act_${META_AD_ACCOUNT_ID}`;
+  const defaultCtaType = CTA_TYPE_MAP[ctaText] || 'LEARN_MORE';
+  const targetCountries = Array.isArray(countries) && countries.length > 0 ? countries : ['US'];
+
+  // Track all created objects for rollback
+  const created = { campaignId: null, adSetId: null, creatives: [], adIds: [] };
+
+  try {
+    // 1. Create campaign (paused)
+    const campaign = await graphFetch(`${GRAPH_API}/${actId}/campaigns`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: campaignName || 'Ad Generator Bulk Campaign',
+        objective: 'OUTCOME_TRAFFIC',
+        status: 'PAUSED',
+        special_ad_categories: [],
+        access_token: token,
+      }),
+    });
+    created.campaignId = campaign.id;
+
+    // 2. Create ad set (paused)
+    const adSet = await graphFetch(`${GRAPH_API}/${actId}/adsets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `${campaignName || 'Ad Generator Bulk'} - Ad Set`,
+        campaign_id: campaign.id,
+        daily_budget: Math.round((dailyBudget || 10) * 100),
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'LINK_CLICKS',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        targeting: { geo_locations: { countries: targetCountries } },
+        start_time: new Date(Date.now() + 86400000).toISOString(),
+        status: 'PAUSED',
+        access_token: token,
+      }),
+    });
+    created.adSetId = adSet.id;
+
+    // 3. For each ad: create creative + ad
+    const createdAds = [];
+    for (let i = 0; i < ads.length; i++) {
+      const ad = ads[i];
+      const adCtaType = CTA_TYPE_MAP[ad.ctaText] || defaultCtaType;
+
+      const creative = await graphFetch(`${GRAPH_API}/${actId}/adcreatives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${campaignName || 'Bulk'} - Creative ${i + 1}`,
+          object_story_spec: {
+            page_id: pageId,
+            link_data: {
+              image_hash: ad.imageHash,
+              link: linkUrl || 'https://gwork.ai',
+              message: ad.body || '',
+              name: ad.headline || '',
+              call_to_action: { type: adCtaType },
+            },
+          },
+          access_token: token,
+        }),
+      });
+      created.creatives.push(creative.id);
+
+      const adObj = await graphFetch(`${GRAPH_API}/${actId}/ads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${campaignName || 'Bulk'} - Ad ${i + 1}`,
+          adset_id: adSet.id,
+          creative: { creative_id: creative.id },
+          status: 'PAUSED',
+          access_token: token,
+        }),
+      });
+      created.adIds.push(adObj.id);
+
+      createdAds.push({
+        adId: adObj.id,
+        creativeId: creative.id,
+        variationId: ad.variationId,
+      });
+    }
+
+    // 4. Track all publications
+    const publications = loadPublications();
+    for (const ad of ads) {
+      const match = createdAds.find(c => c.variationId === ad.variationId);
+      if (match) {
+        publications.push({
+          variationId: ad.variationId,
+          adId: match.adId,
+          campaignId: campaign.id,
+          adSetId: adSet.id,
+          headline: ad.headline || '',
+          body: ad.body || '',
+          ctaText: ad.ctaText || ctaText || '',
+          publishedAt: Date.now(),
+        });
+      }
+    }
+    savePublications(publications);
+
+    res.json({
+      campaignId: campaign.id,
+      adSetId: adSet.id,
+      ads: createdAds,
+      adsManagerUrl: `https://www.facebook.com/adsmanager/manage/campaigns?act=${META_AD_ACCOUNT_ID}&campaign_ids=${campaign.id}`,
+    });
+  } catch (err) {
+    console.error('Bulk create ads error:', err);
+    // Rollback in reverse order: ads -> creatives -> ad set -> campaign
+    for (const id of created.adIds.reverse()) await deleteObject(id, token);
+    for (const id of created.creatives.reverse()) await deleteObject(id, token);
+    if (created.adSetId) await deleteObject(created.adSetId, token);
+    if (created.campaignId) await deleteObject(created.campaignId, token);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get pages the user manages (needed for ad creative)
 app.get('/api/meta/pages', async (_req, res) => {
   if (!tokenData?.accessToken) {

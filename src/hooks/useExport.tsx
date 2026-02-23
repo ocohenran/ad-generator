@@ -261,7 +261,14 @@ export function useExport(opts: ExportOptions) {
     );
   }, [config, dims, format, jpegQuality, activeVariation]);
 
+  const getVariationBlob = useCallback(async (variation: AdVariation): Promise<Blob> => {
+    return renderAndCapture(
+      config, dims, format, jpegQuality,
+      variation.headline, variation.paragraph, variation.cta,
+    );
+  }, [config, dims, format, jpegQuality]);
+
   const clearError = useCallback(() => setExportError(null), []);
 
-  return { exporting, exportProgress, exportError, clearError, exportSingle, exportBulk, exportBatchResize, getImageBlob };
+  return { exporting, exportProgress, exportError, clearError, exportSingle, exportBulk, exportBatchResize, getImageBlob, getVariationBlob };
 }
