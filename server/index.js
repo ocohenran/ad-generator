@@ -93,7 +93,9 @@ async function graphFetch(path, options = {}) {
   const res = await fetch(url, options);
   const json = await res.json();
   if (json.error) {
-    throw new Error(json.error.message || JSON.stringify(json.error));
+    const detail = json.error.error_user_msg || json.error.error_user_title || '';
+    console.error(`Graph API error [${url.split('?')[0]}]: ${json.error.message} | ${detail} | subcode: ${json.error.error_subcode}`);
+    throw new Error(detail || json.error.message || JSON.stringify(json.error));
   }
   return json;
 }
@@ -108,7 +110,7 @@ app.get('/api/meta/auth', (_req, res) => {
   for (const [k, v] of pendingOAuthStates) {
     if (Date.now() - v.createdAt > 600_000) pendingOAuthStates.delete(k);
   }
-  const scopes = 'ads_management,ads_read,business_management';
+  const scopes = 'ads_management,ads_read,business_management,pages_read_engagement,pages_show_list';
   const url = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}&scope=${scopes}&response_type=code&state=${state}`;
   res.redirect(url);
 });
@@ -193,18 +195,32 @@ app.post('/api/meta/upload-image', upload.single('image'), async (req, res) => {
   }
 
   try {
-    const formData = new FormData();
-    formData.append('filename', req.file.originalname || 'ad-creative.png');
-    formData.append('bytes', new Blob([req.file.buffer]), req.file.originalname || 'ad-creative.png');
-    formData.append('access_token', tokenData.accessToken);
+    const filename = req.file.originalname || 'ad-creative.png';
+    const imgBuffer = req.file.buffer;
+    const base64 = imgBuffer.toString('base64');
 
-    const result = await graphFetch(`${GRAPH_API}/act_${META_AD_ACCOUNT_ID}/adimages`, {
+    console.log(`Uploading image: ${filename}, buffer size: ${imgBuffer.length} bytes`);
+
+    // Use base64 upload method instead of multipart (more reliable in Node.js)
+    const url = `${GRAPH_API}/act_${META_AD_ACCOUNT_ID}/adimages`;
+    const res2 = await fetch(url, {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename,
+        bytes: base64,
+        access_token: tokenData.accessToken,
+      }),
     });
+    const json = await res2.json();
+
+    if (json.error) {
+      console.error('Meta image upload error detail:', JSON.stringify(json.error));
+      throw new Error(json.error.message || JSON.stringify(json.error));
+    }
 
     // Response has images keyed by filename
-    const images = result.images || {};
+    const images = json.images || {};
     const imageData = Object.values(images)[0];
 
     res.json({
@@ -266,6 +282,7 @@ app.post('/api/meta/create-ad', async (req, res) => {
         objective: 'OUTCOME_TRAFFIC',
         status: 'PAUSED',
         special_ad_categories: [],
+        is_adset_budget_sharing_enabled: false,
         access_token: token,
       }),
     });
@@ -384,6 +401,7 @@ app.post('/api/meta/create-bulk-ads', async (req, res) => {
         objective: 'OUTCOME_TRAFFIC',
         status: 'PAUSED',
         special_ad_categories: [],
+        is_adset_budget_sharing_enabled: false,
         access_token: token,
       }),
     });
