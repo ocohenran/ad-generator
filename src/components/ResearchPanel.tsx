@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { searchReddit, formatQuotesAsBrief } from '../lib/redditApi';
 import type { RedditPost, SavedQuote, RedditSort } from '../lib/redditApi';
 
@@ -50,12 +50,36 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
   const [quotesExpanded, setQuotesExpanded] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Brief → keywords state
+  // Brief → keywords
   const [briefText, setBriefText] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
-  const [briefExpanded, setBriefExpanded] = useState(true);
+  const [showBriefInput, setShowBriefInput] = useState(true);
+
+  // Reusable search function
+  const doSearch = useCallback(async (searchQuery: string, currentState: ResearchState) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const posts = await searchReddit(
+        searchQuery,
+        { subreddit: currentState.subreddit.trim() || undefined, sort: currentState.sort },
+        controller.signal,
+      );
+      onStateChange({ ...currentState, query: searchQuery, results: posts });
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setError(err instanceof Error ? err.message : 'Search failed');
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, [onStateChange]);
 
   const handleExtractKeywords = async () => {
     if (!briefText.trim()) return;
@@ -70,6 +94,14 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setKeywords(data.keywords);
+      setShowBriefInput(false);
+
+      // Auto-search the first keyword
+      if (data.keywords.length > 0) {
+        const first = data.keywords[0];
+        setActiveKeyword(first);
+        doSearch(first, state);
+      }
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Extraction failed');
     } finally {
@@ -77,20 +109,9 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
     }
   };
 
-  const [selectedKeywords, setSelectedKeywords] = useState<Set<string>>(new Set());
-
-  const toggleKeyword = (kw: string) => {
-    setSelectedKeywords((prev) => {
-      const next = new Set(prev);
-      if (next.has(kw)) next.delete(kw);
-      else next.add(kw);
-      return next;
-    });
-  };
-
-  const searchSelected = () => {
-    if (selectedKeywords.size === 0) return;
-    patch({ query: Array.from(selectedKeywords).join(' OR ') });
+  const handleChipClick = (kw: string) => {
+    setActiveKeyword(kw);
+    doSearch(kw, state);
   };
 
   const patch = (partial: Partial<ResearchState>) => {
@@ -99,27 +120,8 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
 
   const handleSearch = async () => {
     if (!query.trim()) return;
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const posts = await searchReddit(
-        query.trim(),
-        { subreddit: subreddit.trim() || undefined, sort },
-        controller.signal,
-      );
-      patch({ results: posts });
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : 'Search failed');
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
+    setActiveKeyword(null);
+    doSearch(query.trim(), state);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -156,122 +158,116 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Brief → Keywords */}
-      <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-        <button
-          onClick={() => setBriefExpanded((p) => !p)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text-secondary)',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: 0, marginBottom: 8,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}
-        >
-          {briefExpanded ? '\u25BC' : '\u25B6'} Paste Brief
-        </button>
+      {/* Brief input — shown initially or when user clicks "Change brief" */}
+      {showBriefInput ? (
+        <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+          <label className="editor-label">Paste Marketing Brief</label>
+          <textarea
+            className="editor-input"
+            value={briefText}
+            onChange={(e) => setBriefText(e.target.value)}
+            placeholder="Paste headlines, value props, taglines... AI extracts Reddit search keywords"
+            rows={3}
+            style={{ fontSize: 12, resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
+          />
+          <button
+            className="btn-primary"
+            onClick={handleExtractKeywords}
+            disabled={extracting || !briefText.trim()}
+            style={{ marginTop: 6, width: '100%' }}
+          >
+            {extracting ? 'Extracting...' : 'Extract Keywords & Search'}
+          </button>
+          {extractError && (
+            <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>{extractError}</div>
+          )}
+        </div>
+      ) : null}
 
-        {briefExpanded && (
-          <>
-            <textarea
-              className="editor-input"
-              value={briefText}
-              onChange={(e) => setBriefText(e.target.value)}
-              placeholder="Paste marketing copy, headlines, value props... AI will extract Reddit search keywords"
-              rows={4}
-              style={{ fontSize: 12, resize: 'vertical', width: '100%', fontFamily: 'inherit' }}
-            />
+      {/* Keyword chips — always visible after extraction */}
+      {keywords.length > 0 && (
+        <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Keywords
+            </span>
             <button
-              className="btn-primary"
-              onClick={handleExtractKeywords}
-              disabled={extracting || !briefText.trim()}
-              style={{ marginTop: 6, width: '100%' }}
+              onClick={() => { setShowBriefInput(true); setKeywords([]); setActiveKeyword(null); }}
+              style={{
+                background: 'none', border: 'none', color: 'var(--text-dim)',
+                cursor: 'pointer', fontSize: 11, padding: 0, textDecoration: 'underline',
+              }}
             >
-              {extracting ? 'Extracting Keywords...' : 'Extract Keywords'}
+              Change brief
             </button>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {keywords.map((kw, i) => {
+              const isActive = activeKeyword === kw;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleChipClick(kw)}
+                  disabled={loading}
+                  style={{
+                    fontSize: 11,
+                    background: isActive ? 'var(--accent)' : 'var(--surface)',
+                    border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 12, padding: '3px 10px', cursor: loading ? 'wait' : 'pointer',
+                    color: isActive ? '#fff' : 'var(--text-muted)',
+                    fontWeight: isActive ? 600 : 400,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {kw}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-            {extractError && (
-              <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>{extractError}</div>
-            )}
-
-            {keywords.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {keywords.map((kw, i) => {
-                    const selected = selectedKeywords.has(kw);
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => toggleKeyword(kw)}
-                        style={{
-                          fontSize: 11, background: selected ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'var(--surface)',
-                          border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`,
-                          borderRadius: 12, padding: '4px 10px', cursor: 'pointer',
-                          color: selected ? 'var(--accent)' : 'var(--text-muted)',
-                          fontWeight: selected ? 600 : 400,
-                        }}
-                        title="Click to select/deselect"
-                      >
-                        {selected ? '\u2713 ' : ''}{kw}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedKeywords.size > 0 && (
-                  <button
-                    className="btn-primary"
-                    onClick={searchSelected}
-                    style={{ marginTop: 8, width: '100%', fontSize: 12 }}
-                  >
-                    Search {selectedKeywords.size} keyword{selectedKeywords.size > 1 ? 's' : ''} on Reddit
-                  </button>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Search inputs */}
-      <div>
-        <label className="editor-label">Search Reddit</label>
+      {/* Manual search — compact */}
+      <div style={{ display: 'flex', gap: 6 }}>
         <input
           className="editor-input"
           value={query}
-          onChange={(e) => patch({ query: e.target.value })}
+          onChange={(e) => { patch({ query: e.target.value }); setActiveKeyword(null); }}
           onKeyDown={handleKeyDown}
-          placeholder='e.g. "employee engagement software frustrations"'
-          style={{ fontSize: 12 }}
+          placeholder="Search Reddit..."
+          style={{ fontSize: 12, flex: 1 }}
         />
-      </div>
-
-      <div>
-        <label className="editor-label">Subreddit (optional)</label>
         <input
           className="editor-input"
           value={subreddit}
           onChange={(e) => patch({ subreddit: e.target.value })}
           onKeyDown={handleKeyDown}
-          placeholder="e.g. humanresources, peopleops"
-          style={{ fontSize: 12 }}
+          placeholder="subreddit"
+          style={{ fontSize: 12, width: 100 }}
         />
       </div>
 
-      {/* Sort */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      {/* Sort + Search button on one line */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         {SORT_OPTIONS.map((s) => (
           <button
             key={s.key}
             className={`template-btn ${sort === s.key ? 'active' : ''}`}
             onClick={() => patch({ sort: s.key })}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 11 }}
           >
             {s.label}
           </button>
         ))}
+        <button
+          className="btn-primary"
+          onClick={handleSearch}
+          disabled={loading || !query.trim()}
+          style={{ marginLeft: 'auto', fontSize: 12, padding: '4px 14px' }}
+        >
+          {loading ? 'Searching...' : 'Search'}
+        </button>
       </div>
-
-      <button className="btn-primary" onClick={handleSearch} disabled={loading || !query.trim()}>
-        {loading ? 'Searching...' : 'Search Reddit'}
-      </button>
 
       {/* Error */}
       {error && (
