@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import type { ExportFormat } from '../hooks/useExport';
 
 interface Props {
@@ -28,6 +28,9 @@ interface Props {
   onExportBatchResize: () => void;
   onPublishMeta: () => void;
   onBulkPublishMeta: () => void;
+  // Project save/load
+  onSaveProject: () => void;
+  onLoadProject: (file: File) => void;
 }
 
 export const HeaderBar = memo(function HeaderBar(props: Props) {
@@ -40,7 +43,24 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
     exporting, exportProgress, onExportSingle, onExportBulk, onExportBatchResize,
     onPublishMeta,
     onBulkPublishMeta,
+    onSaveProject,
+    onLoadProject,
   } = props;
+
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const projectDropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!showProjectMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+        setShowProjectMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showProjectMenu]);
 
   return (
     <header className="app-header">
@@ -63,6 +83,48 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
             title="Undo (Ctrl+Z)" aria-label="Undo">&#x21A9;</button>
           <button className="btn-icon" onClick={onRedo} disabled={!canRedo}
             title="Redo (Ctrl+Shift+Z)" aria-label="Redo">&#x21AA;</button>
+        </div>
+
+        <div className="header-divider" />
+
+        {/* Project save/load dropdown */}
+        <div style={{ position: 'relative' }} ref={projectDropdownRef}>
+          <button className="btn-secondary"
+            onClick={() => setShowProjectMenu(p => !p)}
+            style={{ fontSize: 12 }}
+            aria-expanded={showProjectMenu}
+            aria-haspopup="true"
+          >
+            Project &#x25BE;
+          </button>
+          {showProjectMenu && (
+            <div className="export-dropdown">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button className="btn-secondary" onClick={() => { onSaveProject(); setShowProjectMenu(false); }}
+                  style={{ width: '100%', fontSize: 12, textAlign: 'left' }}>
+                  Save Project
+                </button>
+                <button className="btn-secondary" onClick={() => { fileInputRef.current?.click(); }}
+                  style={{ width: '100%', fontSize: 12, textAlign: 'left' }}>
+                  Load Project...
+                </button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    onLoadProject(file);
+                    setShowProjectMenu(false);
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          )}
         </div>
 
         <div className="header-divider" />
@@ -149,12 +211,12 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
         <div className="header-divider" />
 
         <button className="btn-secondary" onClick={onPublishMeta}
-          style={{ fontSize: 12, background: 'rgba(24,119,242,0.15)', borderColor: 'rgba(24,119,242,0.4)' }}>
+          style={{ fontSize: 12, background: 'rgba(250,111,28,0.1)', borderColor: 'rgba(250,111,28,0.3)' }}>
           Publish to Meta
         </button>
         <button className="btn-secondary" onClick={onBulkPublishMeta}
           disabled={variationCount < 2}
-          style={{ fontSize: 12, background: 'rgba(24,119,242,0.25)', borderColor: 'rgba(24,119,242,0.5)', fontWeight: 600 }}>
+          style={{ fontSize: 12, background: 'rgba(250,111,28,0.18)', borderColor: 'rgba(250,111,28,0.4)', fontWeight: 600 }}>
           Bulk Publish ({variationCount})
         </button>
       </div>

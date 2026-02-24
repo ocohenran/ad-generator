@@ -1,49 +1,49 @@
 /* ── Theme Variables ── */
 :root,
+[data-theme="light"] {
+  --bg-primary: #faf9f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f1ee;
+  --bg-input: #ffffff;
+  --border: #e5e1db;
+  --border-hover: #c4bfb6;
+  --border-active: #FA6F1C;
+  --text-primary: #1a1714;
+  --text-secondary: #2d2924;
+  --text-muted: #5c564e;
+  --text-dim: #7a746b;
+  --text-faint: #9a9389;
+  --accent: #FA6F1C;
+  --accent-hover: #e05e12;
+  --accent-soft: rgba(250, 111, 28, 0.08);
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #d97706;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  --card-bg: #ffffff;
+}
+
 [data-theme="dark"] {
-  --bg-primary: #0f1117;
-  --bg-secondary: #13151a;
-  --bg-tertiary: #1a1c24;
-  --bg-input: #1a1c24;
-  --border: #1e2028;
-  --border-hover: #334155;
-  --border-active: #6366f1;
-  --text-primary: #f1f5f9;
-  --text-secondary: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  --text-faint: #475569;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-soft: rgba(99, 102, 241, 0.08);
+  --bg-primary: #141210;
+  --bg-secondary: #1c1917;
+  --bg-tertiary: #231f1b;
+  --bg-input: #231f1b;
+  --border: #2e2924;
+  --border-hover: #4a433b;
+  --border-active: #FA6F1C;
+  --text-primary: #f5f0eb;
+  --text-secondary: #e8e0d8;
+  --text-muted: #a39889;
+  --text-dim: #7a6f62;
+  --text-faint: #5c5348;
+  --accent: #FA6F1C;
+  --accent-hover: #e05e12;
+  --accent-soft: rgba(250, 111, 28, 0.1);
   --danger: #ef4444;
   --success: #22c55e;
   --warning: #f59e0b;
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  --card-bg: #181a21;
-}
-
-[data-theme="light"] {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-input: #ffffff;
-  --border: #e2e8f0;
-  --border-hover: #94a3b8;
-  --border-active: #6366f1;
-  --text-primary: #0f172a;
-  --text-secondary: #1e293b;
-  --text-muted: #475569;
-  --text-dim: #64748b;
-  --text-faint: #6b7280;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-soft: rgba(99, 102, 241, 0.06);
-  --danger: #dc2626;
-  --success: #16a34a;
-  --warning: #d97706;
-  --shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  --card-bg: #ffffff;
+  --card-bg: #1c1917;
 }
 
 /* ── Themed text classes ── */
@@ -78,7 +78,7 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: linear-gradient(135deg, #6366f1, #0ea5e9);
+  background: linear-gradient(135deg, #FA6F1C, #f5a623);
   flex-shrink: 0;
 }
 

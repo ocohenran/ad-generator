@@ -42,7 +42,7 @@ function App() {
   );
   const [activeTab, setActiveTab] = useState<Tab>('editor');
   const [theme, setTheme] = useState<Theme>(() =>
-    (localStorage.getItem('ad-gen:theme') as Theme) || 'dark'
+    (localStorage.getItem('ad-gen:theme') as Theme) || 'light'
   );
   const [showComparison, setShowComparison] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
@@ -163,6 +163,48 @@ function App() {
     setActiveTab('brainstorm');
   }, []);
 
+  const handleSaveProject = useCallback(() => {
+    const projectData = {
+      version: 1 as const,
+      savedAt: new Date().toISOString(),
+      config: { ...config, backgroundImage: null },
+      variations,
+      likedIds: [...likedIds],
+      researchBrief,
+    };
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const safeName = config.logoText.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() || 'project';
+    a.href = url;
+    a.download = `ad-project-${safeName}-${dateStr}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [config, variations, likedIds, researchBrief]);
+
+  const handleLoadProject = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (!data || data.version !== 1 || !data.config || !Array.isArray(data.variations)) {
+          alert('Invalid project file. Please select a valid .json project file.');
+          return;
+        }
+        if (!confirm('Loading a project will replace your current work. Continue?')) return;
+        setConfig(data.config);
+        setVariations(data.variations);
+        setLikedIds(new Set(Array.isArray(data.likedIds) ? data.likedIds : []));
+        if (data.researchBrief !== undefined) setResearchBrief(data.researchBrief);
+        setActiveVariation(null);
+      } catch {
+        alert('Could not parse project file. The file may be corrupted.');
+      }
+    };
+    reader.readAsText(file);
+  }, [setConfig, setVariations, setLikedIds, setResearchBrief]);
+
   const handleCopyToMeta = useCallback(() => {
     const h = activeVariation?.headline ?? config.headline;
     const p = activeVariation?.paragraph ?? config.paragraph;
@@ -257,6 +299,8 @@ function App() {
           onExportBatchResize={exportBatchResize}
           onPublishMeta={() => setShowMetaPublish(true)}
           onBulkPublishMeta={() => setShowBulkMetaPublish(true)}
+          onSaveProject={handleSaveProject}
+          onLoadProject={handleLoadProject}
         />
 
         <div className="app-body">
