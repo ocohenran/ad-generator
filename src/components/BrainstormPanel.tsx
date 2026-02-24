@@ -6,6 +6,7 @@ import { getApiKey } from './ApiKeyModal.tsx';
 
 interface Props {
   onAdd: (variations: AdVariation[]) => void;
+  onRemoveLast?: (ids: string[]) => void;
   initialBrief?: string;
   likedVariations?: AdVariation[];
 }
@@ -144,7 +145,7 @@ function extractBetween(text: string, start: string, end: string): string {
   return endIdx > 0 ? after.slice(0, endIdx).trim() : after.trim();
 }
 
-export function BrainstormPanel({ onAdd, initialBrief, likedVariations = [] }: Props) {
+export function BrainstormPanel({ onAdd, onRemoveLast, initialBrief, likedVariations = [] }: Props) {
   const [mode, setMode] = useState<Mode>(initialBrief ? 'ai' : 'templates');
   const [description, setDescription] = useState('');
   const [briefText, setBriefText] = useState(initialBrief ?? '');
@@ -155,6 +156,7 @@ export function BrainstormPanel({ onAdd, initialBrief, likedVariations = [] }: P
   const [aiError, setAiError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [undoState, setUndoState] = useState<{ generated: AdVariation[]; selected: Set<string>; addedIds: string[] } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -276,10 +278,28 @@ export function BrainstormPanel({ onAdd, initialBrief, likedVariations = [] }: P
   const selectNone = () => setSelected(new Set());
 
   const addSelected = () => {
-    onAdd(generated.filter((g) => selected.has(g.id)));
+    const toAdd = generated.filter((g) => selected.has(g.id));
+    const addedIds = toAdd.map((v) => v.id);
+    onAdd(toAdd);
+    setUndoState({ generated, selected, addedIds });
     setGenerated([]);
     setSelected(new Set());
   };
+
+  const undoAdd = () => {
+    if (!undoState) return;
+    setGenerated(undoState.generated);
+    setSelected(undoState.selected);
+    onRemoveLast?.(undoState.addedIds);
+    setUndoState(null);
+  };
+
+  // Auto-dismiss undo bar after 5 seconds
+  useEffect(() => {
+    if (!undoState) return;
+    const t = setTimeout(() => setUndoState(null), 5000);
+    return () => clearTimeout(t);
+  }, [undoState]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -400,6 +420,28 @@ export function BrainstormPanel({ onAdd, initialBrief, likedVariations = [] }: P
         </>
       )}
 
+      {/* Undo bar */}
+      {undoState && generated.length === 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 12px', borderRadius: 6,
+          background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+          fontSize: 12, color: 'var(--text-secondary)',
+        }}>
+          <span>{undoState.addedIds.length} variation{undoState.addedIds.length !== 1 ? 's' : ''} added</span>
+          <button
+            onClick={undoAdd}
+            style={{
+              background: 'none', border: 'none', color: 'var(--accent)',
+              fontWeight: 600, cursor: 'pointer', fontSize: 12, padding: '2px 6px',
+              fontFamily: 'inherit',
+            }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
       {/* ── Results (shared between modes) ── */}
       {generated.length > 0 && (
         <div>
@@ -433,11 +475,15 @@ export function BrainstormPanel({ onAdd, initialBrief, likedVariations = [] }: P
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>#{i + 1}</span>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: getScoreColor(score),
-                        padding: '1px 6px', borderRadius: 4,
-                        background: `${getScoreColor(score)}15`,
-                      }}>
+                      <span
+                        title="Ad effectiveness score based on headline clarity, emotional impact, and CTA strength"
+                        style={{
+                          fontSize: 10, fontWeight: 700, color: getScoreColor(score),
+                          padding: '1px 6px', borderRadius: 4,
+                          background: `${getScoreColor(score)}15`,
+                          cursor: 'help',
+                        }}
+                      >
                         {score}/100
                       </span>
                       <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>

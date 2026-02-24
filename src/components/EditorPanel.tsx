@@ -294,11 +294,11 @@ export function EditorPanel({ config, onChange }: Props) {
             Save As...
           </button>
           <button className="btn-secondary" onClick={handleExportPresets} style={{ fontSize: 11, padding: '3px 8px' }}>
-            Export
+            Save JSON
           </button>
           <input ref={importRef} type="file" accept=".json" onChange={handleImportPresets} style={{ display: 'none' }} />
           <button className="btn-secondary" onClick={() => importRef.current?.click()} style={{ fontSize: 11, padding: '3px 8px' }}>
-            Import
+            Load JSON
           </button>
         </div>
       </Section>

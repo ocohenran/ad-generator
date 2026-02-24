@@ -292,6 +292,7 @@ function App() {
                 {activeTab === 'brainstorm' && (
                   <BrainstormPanel
                     onAdd={(newVars) => setVariations((prev) => [...prev, ...newVars])}
+                    onRemoveLast={(ids) => setVariations((prev) => prev.filter((v) => !ids.includes(v.id)))}
                     initialBrief={researchBrief}
                     likedVariations={likedVariations}
                   />
