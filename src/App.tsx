@@ -264,7 +264,7 @@ function App() {
           {!sidebarCollapsed && (
             <aside className="sidebar">
               <div className="tab-bar" role="tablist">
-                {([['editor', 'Design'], ['brainstorm', 'Brainstorm'], ['bulk', 'Bulk Generate'], ['research', 'Research'], ['performance', 'Performance']] as const).map(
+                {([['research', 'Research'], ['brainstorm', 'Brainstorm'], ['bulk', 'Bulk Generate'], ['editor', 'Design'], ['performance', 'Performance']] as const).map(
                   ([key, label]) => (
                     <button
                       key={key}
