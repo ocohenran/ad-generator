@@ -85,7 +85,7 @@ export interface TemplateProps {
 
 export const DEFAULT_CONFIG: AdConfig = {
   template: 'standard',
-  aspectRatio: '4:5',
+  aspectRatio: '1:1',
   fontFamily: "'Inter', system-ui, sans-serif",
   backgroundImage: null,
   gradientFrom: '#6D28D9',
