@@ -9,9 +9,7 @@ interface Props {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onReset: () => void;
   variationCount: number;
-  onCompare: () => void;
   onOpenSettings: () => void;
   // Export
   exportFormat: ExportFormat;
@@ -34,8 +32,8 @@ interface Props {
 
 export const HeaderBar = memo(function HeaderBar(props: Props) {
   const {
-    dims, theme, onThemeToggle, canUndo, canRedo, onUndo, onRedo, onReset,
-    variationCount, onCompare, onOpenSettings,
+    dims, theme, onThemeToggle, canUndo, canRedo, onUndo, onRedo,
+    variationCount, onOpenSettings,
     exportFormat, onExportFormatChange, jpegQuality, onJpegQualityChange,
     filenamePattern, onFilenamePatternChange,
     showExportSettings, onToggleExportSettings, exportDropdownRef,
@@ -85,17 +83,9 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
           {theme === 'dark' ? '\u2600' : '\u263E'}
         </button>
 
-        <button className="btn-icon" onClick={onReset} title="Reset to defaults" aria-label="Reset to defaults">
-          &#x21BB;
-        </button>
-
-        {variationCount >= 2 && (
-          <button className="btn-secondary" onClick={onCompare}>Compare</button>
-        )}
-
         <div className="header-divider" />
 
-        {/* Export settings */}
+        {/* Export dropdown — format settings + all export actions */}
         <div style={{ position: 'relative' }} ref={exportDropdownRef}>
           <button className="btn-secondary"
             onClick={onToggleExportSettings}
@@ -103,7 +93,7 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
             aria-expanded={showExportSettings}
             aria-haspopup="true"
           >
-            {exportFormat.toUpperCase()} {exportFormat === 'jpeg' ? `(${jpegQuality}%)` : ''} &#x25BE;
+            Export &#x25BE;
           </button>
           {showExportSettings && (
             <div className="export-dropdown">
@@ -133,23 +123,28 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
               <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
                 {'{brand}'} {'{template}'} {'{num}'} {'{headline}'} {'{ratio}'}
               </div>
+              <div style={{ borderTop: '1px solid var(--border)', margin: '10px 0' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button className="btn-secondary" onClick={() => { onExportSingle(); onToggleExportSettings(); }}
+                  disabled={exporting} style={{ width: '100%', fontSize: 12, textAlign: 'left' }} title="Ctrl+S">
+                  {exporting && exportProgress.total === 0 ? 'Exporting...' : 'Export Current'}
+                </button>
+                <button className="btn-secondary" onClick={() => { onExportBatchResize(); onToggleExportSettings(); }}
+                  disabled={exporting} style={{ width: '100%', fontSize: 12, textAlign: 'left' }}
+                  title="Export in all aspect ratios">
+                  Export All Sizes
+                </button>
+                <button className="btn-primary" onClick={() => { onExportBulk(); onToggleExportSettings(); }}
+                  disabled={variationCount === 0 || exporting}
+                  style={{ width: '100%', fontSize: 12, textAlign: 'left' }} title="Ctrl+Shift+S">
+                  {exporting && exportProgress.total > 0
+                    ? `Exporting ${exportProgress.current}/${exportProgress.total}...`
+                    : `Export All Variations (${variationCount}) ZIP`}
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        <button className="btn-secondary" onClick={onExportSingle} disabled={exporting} title="Ctrl+S">
-          {exporting && exportProgress.total === 0 ? 'Exporting...' : 'Export Preview'}
-        </button>
-        <button className="btn-secondary" onClick={onExportBatchResize} disabled={exporting}
-          title="Export in all 3 aspect ratios">
-          All Sizes
-        </button>
-        <button className="btn-primary" onClick={onExportBulk}
-          disabled={variationCount === 0 || exporting} title="Ctrl+Shift+S">
-          {exporting && exportProgress.total > 0
-            ? `Exporting ${exportProgress.current}/${exportProgress.total}...`
-            : `Export All (${variationCount}) ZIP`}
-        </button>
 
         <div className="header-divider" />
 

@@ -53,7 +53,7 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
   // Brief → keywords
   const [briefText, setBriefText] = useState('');
   const [keywords, setKeywords] = useState<string[]>([]);
-  const [activeKeyword, setActiveKeyword] = useState<string | null>(null);
+  const [selectedKws, setSelectedKws] = useState<Set<string>>(new Set());
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [showBriefInput, setShowBriefInput] = useState(true);
@@ -99,7 +99,7 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
       // Auto-search the first keyword
       if (data.keywords.length > 0) {
         const first = data.keywords[0];
-        setActiveKeyword(first);
+        setSelectedKws(new Set([first]));
         doSearch(first, state);
       }
     } catch (err) {
@@ -109,9 +109,21 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
     }
   };
 
-  const handleChipClick = (kw: string) => {
-    setActiveKeyword(kw);
-    doSearch(kw, state);
+  const handleChipClick = (kw: string, shiftKey: boolean) => {
+    let next: Set<string>;
+    if (shiftKey) {
+      // Shift+click: toggle this keyword in/out of selection
+      next = new Set(selectedKws);
+      if (next.has(kw)) next.delete(kw);
+      else next.add(kw);
+      if (next.size === 0) return;
+    } else {
+      // Plain click: search just this keyword
+      next = new Set([kw]);
+    }
+    setSelectedKws(next);
+    const combined = Array.from(next).join(' OR ');
+    doSearch(combined, state);
   };
 
   const patch = (partial: Partial<ResearchState>) => {
@@ -120,7 +132,7 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
 
   const handleSearch = async () => {
     if (!query.trim()) return;
-    setActiveKeyword(null);
+    setSelectedKws(new Set());
     doSearch(query.trim(), state);
   };
 
@@ -188,11 +200,12 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
       {keywords.length > 0 && (
         <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Keywords
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Keywords</span>
+              {' '}<span style={{ fontSize: 10, opacity: 0.7 }}>(shift+click to combine)</span>
             </span>
             <button
-              onClick={() => { setShowBriefInput(true); setKeywords([]); setActiveKeyword(null); }}
+              onClick={() => { setShowBriefInput(true); setKeywords([]); setSelectedKws(new Set()); }}
               style={{
                 background: 'none', border: 'none', color: 'var(--text-dim)',
                 cursor: 'pointer', fontSize: 11, padding: 0, textDecoration: 'underline',
@@ -203,11 +216,11 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {keywords.map((kw, i) => {
-              const isActive = activeKeyword === kw;
+              const isActive = selectedKws.has(kw);
               return (
                 <button
                   key={i}
-                  onClick={() => handleChipClick(kw)}
+                  onClick={(e) => handleChipClick(kw, e.shiftKey)}
                   disabled={loading}
                   style={{
                     fontSize: 11,
@@ -232,7 +245,7 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
         <input
           className="editor-input"
           value={query}
-          onChange={(e) => { patch({ query: e.target.value }); setActiveKeyword(null); }}
+          onChange={(e) => { patch({ query: e.target.value }); setSelectedKws(new Set()); }}
           onKeyDown={handleKeyDown}
           placeholder="Search Reddit..."
           style={{ fontSize: 12, flex: 1 }}

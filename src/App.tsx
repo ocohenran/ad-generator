@@ -135,12 +135,6 @@ function App() {
     setTheme((t) => t === 'dark' ? 'light' : 'dark');
   }, []);
 
-  const handleReset = useCallback(() => {
-    if (window.confirm('Reset all settings to defaults?')) {
-      resetConfig(DEFAULT_CONFIG);
-    }
-  }, [resetConfig]);
-
   const handleThumbClick = useCallback((v: AdVariation) => {
     setActiveVariation((prev) => prev?.id === v.id ? null : v);
   }, []);
@@ -245,9 +239,7 @@ function App() {
           canRedo={canRedo}
           onUndo={undo}
           onRedo={redo}
-          onReset={handleReset}
           variationCount={variations.length}
-          onCompare={() => setShowComparison(true)}
           onOpenSettings={() => setShowSettings(true)}
           exportFormat={exportFormat}
           onExportFormatChange={setExportFormat}
@@ -272,7 +264,7 @@ function App() {
           {!sidebarCollapsed && (
             <aside className="sidebar">
               <div className="tab-bar" role="tablist">
-                {([['research', 'Research'], ['editor', 'Template'], ['bulk', 'Bulk Generate'], ['brainstorm', 'Brainstorm'], ['performance', 'Performance']] as const).map(
+                {([['editor', 'Design'], ['brainstorm', 'Brainstorm'], ['bulk', 'Bulk Generate'], ['research', 'Research'], ['performance', 'Performance']] as const).map(
                   ([key, label]) => (
                     <button
                       key={key}

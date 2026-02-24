@@ -194,8 +194,60 @@ export function EditorPanel({ config, onChange }: Props) {
     if (fileRef.current) fileRef.current.value = '';
   };
 
+  const showGuidance = !config.headline && !config.paragraph;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* First-time guidance */}
+      {showGuidance && (
+        <div style={{
+          padding: '12px 14px', borderRadius: 8,
+          background: 'var(--surface-raised, rgba(124,58,237,0.08))',
+          border: '1px solid var(--border)',
+          fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5,
+        }}>
+          <strong style={{ fontSize: 14, color: 'var(--text-primary)', display: 'block', marginBottom: 4 }}>Start here</strong>
+          Write your headline and supporting text, then use <strong>Brainstorm</strong> to generate variations.
+        </div>
+      )}
+
+      {/* --- Copy --- */}
+
+      {/* Headline */}
+      <Section label="Headline">
+        <textarea className="editor-input" rows={2} value={config.headline}
+          onChange={(e) => update('headline', e.target.value)} placeholder="Ad headline" />
+        <CharCount value={config.headline} limit={40} label="Meta headline"
+          onTruncate={() => update('headline', truncateAtWord(config.headline, 40))} />
+      </Section>
+
+      {/* Supporting Text */}
+      <Section label="Supporting Text">
+        <textarea className="editor-input" rows={3} value={config.paragraph}
+          onChange={(e) => update('paragraph', e.target.value)} placeholder="Supporting paragraph" />
+        <CharCount value={config.paragraph} limit={125} label="Meta primary text"
+          onTruncate={() => update('paragraph', truncateAtWord(config.paragraph, 125))} />
+      </Section>
+
+      {/* CTA */}
+      <Section label="Call to Action">
+        <input className="editor-input" value={config.ctaText}
+          onChange={(e) => update('ctaText', e.target.value)} placeholder="CTA text" />
+        <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+          <ColorInput label="Button" value={config.ctaColor} onChange={(v) => update('ctaColor', v)} />
+          <ColorInput label="Text" value={config.ctaTextColor} onChange={(v) => update('ctaTextColor', v)} />
+        </div>
+      </Section>
+
+      {/* Brand */}
+      <Section label="Brand">
+        <input className="editor-input" value={config.logoText}
+          onChange={(e) => update('logoText', e.target.value)} placeholder="Logo text" />
+      </Section>
+
+      {/* --- Design --- */}
+      <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+
       {/* Template selector */}
       <Section label="Template Style">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -310,13 +362,6 @@ export function EditorPanel({ config, onChange }: Props) {
         </div>
       </Section>
 
-      {/* Accent Glow */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-        <input type="checkbox" checked={config.accentGlow ?? true}
-          onChange={(e) => update('accentGlow', e.target.checked)} />
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Accent glow effects</span>
-      </label>
-
       {/* Background Image */}
       <Section label="Background Image">
         <input
@@ -430,38 +475,6 @@ export function EditorPanel({ config, onChange }: Props) {
         </Section>
       )}
 
-      {/* Brand */}
-      <Section label="Brand">
-        <input className="editor-input" value={config.logoText}
-          onChange={(e) => update('logoText', e.target.value)} placeholder="Logo text" />
-      </Section>
-
-      {/* Headline */}
-      <Section label="Headline">
-        <textarea className="editor-input" rows={2} value={config.headline}
-          onChange={(e) => update('headline', e.target.value)} placeholder="Ad headline" />
-        <CharCount value={config.headline} limit={40} label="Meta headline"
-          onTruncate={() => update('headline', truncateAtWord(config.headline, 40))} />
-      </Section>
-
-      {/* Paragraph */}
-      <Section label="Supporting Text">
-        <textarea className="editor-input" rows={3} value={config.paragraph}
-          onChange={(e) => update('paragraph', e.target.value)} placeholder="Supporting paragraph" />
-        <CharCount value={config.paragraph} limit={125} label="Meta primary text"
-          onTruncate={() => update('paragraph', truncateAtWord(config.paragraph, 125))} />
-      </Section>
-
-      {/* CTA */}
-      <Section label="Call to Action">
-        <input className="editor-input" value={config.ctaText}
-          onChange={(e) => update('ctaText', e.target.value)} placeholder="CTA text" />
-        <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-          <ColorInput label="Button" value={config.ctaColor} onChange={(v) => update('ctaColor', v)} />
-          <ColorInput label="Text" value={config.ctaTextColor} onChange={(v) => update('ctaTextColor', v)} />
-        </div>
-      </Section>
-
       {/* Colors */}
       <Section label="Text Colors">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -482,12 +495,21 @@ export function EditorPanel({ config, onChange }: Props) {
         </Section>
       )}
 
-      {/* Grain */}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-        <input type="checkbox" checked={config.showGrain}
-          onChange={(e) => update('showGrain', e.target.checked)} />
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Grain texture overlay</span>
-      </label>
+      {/* Effects */}
+      <Section label="Effects">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={config.accentGlow ?? true}
+              onChange={(e) => update('accentGlow', e.target.checked)} />
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Accent glow effects</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={config.showGrain}
+              onChange={(e) => update('showGrain', e.target.checked)} />
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Grain texture overlay</span>
+          </label>
+        </div>
+      </Section>
     </div>
   );
 }
