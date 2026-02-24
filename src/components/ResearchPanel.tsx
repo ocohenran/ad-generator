@@ -284,7 +284,19 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
 
       {/* Error */}
       {error && (
-        <div style={{ fontSize: 12, color: 'var(--danger)', padding: '4px 0' }}>{error}</div>
+        <div style={{ fontSize: 12, color: 'var(--danger)', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>{error}</span>
+          <button
+            onClick={handleSearch}
+            style={{
+              background: 'none', border: '1px solid var(--danger)', color: 'var(--danger)',
+              borderRadius: 4, fontSize: 11, padding: '2px 8px', cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       {/* Results */}

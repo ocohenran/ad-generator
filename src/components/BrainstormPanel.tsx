@@ -415,7 +415,19 @@ export function BrainstormPanel({ onAdd, onRemoveLast, initialBrief, likedVariat
           )}
 
           {aiError && (
-            <div style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 0' }}>{aiError}</div>
+            <div style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>{aiError}</span>
+              <button
+                onClick={handleAiGenerate}
+                style={{
+                  background: 'none', border: '1px solid var(--danger)', color: 'var(--danger)',
+                  borderRadius: 4, fontSize: 11, padding: '2px 8px', cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                Retry
+              </button>
+            </div>
           )}
         </>
       )}

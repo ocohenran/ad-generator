@@ -281,7 +281,8 @@ export function EditorPanel({ config, onChange }: Props) {
                   onClick={() => handleDeletePreset(name)}
                   style={{
                     background: 'none', border: 'none', color: 'var(--text-dim)',
-                    cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1,
+                    cursor: 'pointer', fontSize: 13, padding: '2px 5px', lineHeight: 1,
+                    borderRadius: 4, transition: 'color 0.15s',
                   }}
                   title={`Delete "${name}"`}
                 >

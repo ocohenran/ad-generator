@@ -683,7 +683,8 @@ input[type="checkbox"] {
 }
 
 .file-drop-zone:hover,
-.file-drop-zone.drag-over {
+.file-drop-zone.drag-over,
+.file-drop-zone:focus-visible {
   border-color: var(--accent);
   background: var(--accent-soft);
 }

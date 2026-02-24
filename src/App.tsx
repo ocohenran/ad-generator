@@ -400,7 +400,7 @@ function App() {
               </div>
             ) : (
               <div className="empty-state" style={{ marginTop: 40 }}>
-                <div className="empty-state-icon">{'\ud83c\udfa8'}</div>
+                <div className="empty-state-icon" role="img" aria-label="palette">{'\ud83c\udfa8'}</div>
                 <div className="empty-state-text">No variations yet</div>
                 <div className="empty-state-sub">
                   Use the Bulk or Brainstorm tab to generate ad copy variations

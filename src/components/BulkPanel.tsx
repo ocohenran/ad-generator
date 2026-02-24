@@ -137,7 +137,7 @@ export function BulkPanel({ variations, onVariationsChange }: Props) {
       {/* Variation list with drag-and-drop */}
       {variations.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">{'\ud83d\udcdd'}</div>
+          <div className="empty-state-icon" role="img" aria-label="memo">{'\ud83d\udcdd'}</div>
           <div className="empty-state-text">No variations yet</div>
           <div className="empty-state-sub">Paste text above, load samples, or use Brainstorm</div>
         </div>
