@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ad Creative Generator — Interactive Walkthrough</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #faf9f7;
+    color: #2d2924;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: #FA6F1C;
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #fff;
+    border-bottom: 1px solid #e5e1db;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 50;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1a1714;
+  }
+
+  .nav-logo-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #FA6F1C, #f5a623);
+  }
+
+  .nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .nav-step {
+    font-size: 12px;
+    color: #9a9389;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-btn {
+    padding: 6px 16px;
+    border: 1px solid #e5e1db;
+    border-radius: 6px;
+    background: #fff;
+    color: #5c564e;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .nav-btn:hover { border-color: #c4bfb6; color: #2d2924; }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .nav-btn.primary {
+    background: #FA6F1C;
+    border-color: #FA6F1C;
+    color: #fff;
+  }
+
+  .nav-btn.primary:hover { background: #e05e12; }
+
+  /* ── Slide container ── */
+  .slides {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .slide.exiting {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+
+  .slide-inner {
+    max-width: 860px;
+    width: 100%;
+    display: flex;
+    gap: 48px;
+    align-items: center;
+  }
+
+  .slide-text {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  .slide-visual {
+    flex: 1;
+    min-width: 300px;
+    max-width: 420px;
+  }
+
+  /* ── Typography ── */
+  .slide-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(250, 111, 28, 0.1);
+    color: #FA6F1C;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+
+  .slide-title {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #1a1714;
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
+  }
+
+  .slide-desc {
+    font-size: 15px;
+    line-height: 1.7;
+    color: #5c564e;
+    margin-bottom: 24px;
+  }
+
+  .slide-desc strong {
+    color: #2d2924;
+    font-weight: 600;
+  }
+
+  /* ── Feature list ── */
+  .feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feature-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: #5c564e;
+    line-height: 1.5;
+  }
+
+  .feature-list li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #FA6F1C;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  /* ── Mockup card ── */
+  .mockup {
+    background: #fff;
+    border: 1px solid #e5e1db;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  }
+
+  .mockup-header {
+    padding: 10px 14px;
+    background: #f3f1ee;
+    border-bottom: 1px solid #e5e1db;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mockup-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5e1db;
+  }
+
+  .mockup-dot:nth-child(1) { background: #ef4444; }
+  .mockup-dot:nth-child(2) { background: #f59e0b; }
+  .mockup-dot:nth-child(3) { background: #22c55e; }
+
+  .mockup-body {
+    padding: 20px;
+    font-size: 12px;
+    color: #7a746b;
+    min-height: 220px;
+    position: relative;
+  }
+
+  /* ── Animated UI mockups ── */
+  .mock-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #faf9f7;
+    border-bottom: 1px solid #e5e1db;
+    margin: -20px -20px 16px;
+  }
+
+  .mock-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 11px;
+    color: #1a1714;
+  }
+
+  .mock-logo-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #FA6F1C, #f5a623);
+  }
+
+  .mock-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mock-btn {
+    padding: 3px 8px;
+    border: 1px solid #e5e1db;
+    border-radius: 4px;
+    font-size: 9px;
+    color: #7a746b;
+    background: #fff;
+    font-weight: 500;
+  }
+
+  .mock-btn.accent {
+    background: #FA6F1C;
+    border-color: #FA6F1C;
+    color: #fff;
+  }
+
+  .mock-btn.highlight {
+    animation: pulse-border 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: #FA6F1C; box-shadow: 0 0 0 0 rgba(250, 111, 28, 0); }
+    50% { border-color: #FA6F1C; box-shadow: 0 0 0 3px rgba(250, 111, 28, 0.15); }
+  }
+
+  .mock-layout {
+    display: flex;
+    gap: 12px;
+    height: 180px;
+  }
+
+  .mock-sidebar {
+    width: 40%;
+    background: #f3f1ee;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 9px;
+  }
+
+  .mock-preview {
+    flex: 1;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .mock-tab-bar {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+
+  .mock-tab {
+    padding: 3px 6px;
+    font-size: 8px;
+    border-radius: 3px;
+    color: #9a9389;
+    font-weight: 600;
+    cursor: default;
+  }
+
+  .mock-tab.active {
+    color: #FA6F1C;
+    border-bottom: 1.5px solid #FA6F1C;
+  }
+
+  .mock-input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #e5e1db;
+    border-radius: 3px;
+    font-size: 8px;
+    color: #7a746b;
+    background: #fff;
+    margin-bottom: 6px;
+  }
+
+  .mock-ad {
+    width: 100px;
+    height: 100px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #6D28D9, #EC4899);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    gap: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+
+  .mock-ad-headline {
+    font-size: 8px;
+    font-weight: 700;
+    text-align: center;
+    padding: 0 6px;
+    line-height: 1.2;
+  }
+
+  .mock-ad-cta {
+    padding: 2px 8px;
+    background: #FA6F1C;
+    border-radius: 3px;
+    font-size: 7px;
+    font-weight: 600;
+  }
+
+  .mock-thumbs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mock-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #6D28D9, #EC4899);
+    border: 1.5px solid transparent;
+    transition: border-color 0.3s;
+  }
+
+  .mock-thumb.liked {
+    border-color: #FA6F1C;
+  }
+
+  /* ── Dropdown mockup ── */
+  .mock-dropdown {
+    position: absolute;
+    top: 36px;
+    right: 12px;
+    background: #fff;
+    border: 1px solid #e5e1db;
+    border-radius: 6px;
+    padding: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 5;
+    animation: drop-in 0.3s ease-out;
+  }
+
+  @keyframes drop-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .mock-dropdown .mock-btn {
+    text-align: left;
+    width: 100%;
+  }
+
+  /* ── Keyboard shortcut badges ── */
+  .kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: #f3f1ee;
+    border: 1px solid #e5e1db;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: #5c564e;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  /* ── Shortcut grid ── */
+  .shortcut-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 16px;
+    font-size: 13px;
+  }
+
+  .shortcut-grid .kbd { justify-self: end; }
+  .shortcut-grid span { color: #5c564e; }
+
+  /* ── Step dots ── */
+  .dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5e1db;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+
+  .dot:hover { background: #c4bfb6; }
+  .dot.active { background: #FA6F1C; width: 24px; border-radius: 4px; }
+
+  /* ── Fullscreen hero slide ── */
+  .slide-hero .slide-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 24px;
+  }
+
+  .slide-hero .slide-title {
+    font-size: 44px;
+  }
+
+  .slide-hero .slide-desc {
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .hero-cta .nav-btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flow-step {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #e5e1db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2d2924;
+    white-space: nowrap;
+  }
+
+  .flow-arrow {
+    color: #FA6F1C;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .slide-inner { flex-direction: column; gap: 24px; }
+    .slide-visual { max-width: 100%; }
+    .slide-title { font-size: 24px; }
+    .slide-hero .slide-title { font-size: 28px; }
+    .slide { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon"></div>
+    Walkthrough
+  </div>
+  <div class="nav-controls">
+    <div class="dots" id="dots"></div>
+    <span class="nav-step" id="stepLabel">1 / 10</span>
+    <button class="nav-btn" id="prevBtn" disabled onclick="go(-1)">Back</button>
+    <button class="nav-btn primary" id="nextBtn" onclick="go(1)">Next</button>
+  </div>
+</nav>
+
+<div class="slides" id="slides">
+
+  <!-- Slide 0: Welcome -->
+  <div class="slide slide-hero active" data-index="0">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Walkthrough</div>
+        <h1 class="slide-title">Ad Creative Generator</h1>
+        <p class="slide-desc">
+          Design, brainstorm, and export Meta ad creatives in bulk — all from one tool.
+          This walkthrough covers everything you need to get started.
+        </p>
+        <div class="hero-cta">
+          <button class="nav-btn primary" onclick="go(1)">Let's go</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 1: Overview -->
+  <div class="slide" data-index="1">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Overview</div>
+        <h1 class="slide-title">The interface at a glance</h1>
+        <p class="slide-desc">
+          The app has three main areas: a <strong>header bar</strong> with global actions,
+          a <strong>sidebar</strong> with five tabs for different workflows, and a
+          <strong>live preview</strong> showing your ad creative in real time.
+        </p>
+        <ul class="feature-list">
+          <li>Header: undo/redo, project save/load, export, publish</li>
+          <li>Sidebar: Research, Brainstorm, Bulk, Design, Performance</li>
+          <li>Preview: live canvas, feed preview, variation thumbnails</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-header-bar">
+              <div class="mock-logo"><div class="mock-logo-icon"></div> Ad Generator</div>
+              <div class="mock-btns">
+                <div class="mock-btn">Project</div>
+                <div class="mock-btn">Export</div>
+                <div class="mock-btn accent">Publish</div>
+              </div>
+            </div>
+            <div class="mock-layout">
+              <div class="mock-sidebar">
+                <div class="mock-tab-bar">
+                  <div class="mock-tab">Research</div>
+                  <div class="mock-tab active">Design</div>
+                  <div class="mock-tab">Bulk</div>
+                </div>
+                <div class="mock-input" style="width: 80%;">Headline...</div>
+                <div class="mock-input">Supporting text...</div>
+                <div class="mock-input" style="width: 60%;">CTA...</div>
+                <div style="display:flex;gap:4px;margin-top:8px;">
+                  <div style="width:14px;height:14px;border-radius:3px;background:#6D28D9;"></div>
+                  <div style="width:14px;height:14px;border-radius:3px;background:#EC4899;"></div>
+                  <div style="width:14px;height:14px;border-radius:3px;background:#FA6F1C;"></div>
+                </div>
+              </div>
+              <div class="mock-preview" style="background: #f3f1ee;">
+                <div style="font-size:8px;color:#9a9389;font-weight:600;letter-spacing:0.05em;">LIVE PREVIEW</div>
+                <div class="mock-ad">
+                  <div class="mock-ad-headline">Transform Your Workforce</div>
+                  <div class="mock-ad-cta">Book a Demo</div>
+                </div>
+                <div class="mock-thumbs">
+                  <div class="mock-thumb"></div>
+                  <div class="mock-thumb liked"></div>
+                  <div class="mock-thumb"></div>
+                  <div class="mock-thumb"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 2: Design Tab -->
+  <div class="slide" data-index="2">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 1</div>
+        <h1 class="slide-title">Design your ad</h1>
+        <p class="slide-desc">
+          Open the <strong>Design</strong> tab to set your headline, body copy, CTA, and brand name.
+          Choose from <strong>6 template styles</strong> (Standard, Before/After, Testimonial, Stats,
+          Spotlight, Bold Statement) and customise colours, fonts, and layout.
+        </p>
+        <ul class="feature-list">
+          <li>Character counters warn you about Meta limits (40 headline, 125 body)</li>
+          <li>Pick from 4 aspect ratios: 1:1, 4:5, 9:16, 16:9</li>
+          <li>Upload a background image or use gradient colours</li>
+          <li>Save colour presets as reusable schemes</li>
+          <li>Toggle grain texture and accent glow effects</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-tab-bar" style="margin-bottom:12px;">
+              <div class="mock-tab">Research</div>
+              <div class="mock-tab">Brainstorm</div>
+              <div class="mock-tab">Bulk</div>
+              <div class="mock-tab active">Design</div>
+              <div class="mock-tab">Perf</div>
+            </div>
+            <div style="font-size:9px;font-weight:700;color:#9a9389;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Headline</div>
+            <div class="mock-input" style="font-weight:600;color:#2d2924;">Transform Your Workforce Behavior</div>
+            <div style="font-size:8px;color:#22c55e;margin:-4px 0 8px;">35/40 chars</div>
+            <div style="font-size:9px;font-weight:700;color:#9a9389;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Template</div>
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+              <div class="mock-btn accent" style="font-size:8px;">Standard</div>
+              <div class="mock-btn" style="font-size:8px;">Before/After</div>
+              <div class="mock-btn" style="font-size:8px;">Stats</div>
+              <div class="mock-btn" style="font-size:8px;">Testimonial</div>
+            </div>
+            <div style="font-size:9px;font-weight:700;color:#9a9389;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Aspect Ratio</div>
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+              <div class="mock-btn accent" style="font-size:8px;">1:1</div>
+              <div class="mock-btn" style="font-size:8px;">4:5</div>
+              <div class="mock-btn" style="font-size:8px;">9:16</div>
+              <div class="mock-btn" style="font-size:8px;">16:9</div>
+            </div>
+            <div style="font-size:9px;font-weight:700;color:#9a9389;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Gradient</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div style="width:20px;height:20px;border-radius:4px;background:#6D28D9;border:1px solid #e5e1db;"></div>
+              <div style="font-size:8px;color:#9a9389;">→</div>
+              <div style="width:20px;height:20px;border-radius:4px;background:#7C3AED;border:1px solid #e5e1db;"></div>
+              <div style="font-size:8px;color:#9a9389;">→</div>
+              <div style="width:20px;height:20px;border-radius:4px;background:#EC4899;border:1px solid #e5e1db;"></div>
+              <div style="font-size:8px;color:#9a9389;margin-left:6px;">135°</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Research -->
+  <div class="slide" data-index="3">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 2</div>
+        <h1 class="slide-title">Research your audience</h1>
+        <p class="slide-desc">
+          The <strong>Research</strong> tab lets you search Reddit for real conversations
+          about your product space. Paste your marketing brief and the AI extracts
+          search keywords automatically.
+        </p>
+        <ul class="feature-list">
+          <li>Paste a marketing brief to auto-extract Reddit search terms</li>
+          <li>Search by keyword, subreddit, and sort (relevance / top / new)</li>
+          <li>Save quotes from real user discussions</li>
+          <li>Click "Send to Brainstormer" to pass quotes directly to AI generation</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-tab-bar" style="margin-bottom:12px;">
+              <div class="mock-tab active">Research</div>
+              <div class="mock-tab">Brainstorm</div>
+              <div class="mock-tab">Bulk</div>
+              <div class="mock-tab">Design</div>
+            </div>
+            <div class="mock-input" style="height:40px;">Search Reddit for audience insights...</div>
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+              <div class="mock-btn" style="font-size:8px;">r/productivity</div>
+              <div class="mock-btn accent" style="font-size:8px;">Search</div>
+            </div>
+            <div style="font-size:8px;font-weight:600;color:#7a746b;margin-bottom:6px;">3 RESULTS</div>
+            <div style="padding:8px;background:#f3f1ee;border-radius:4px;margin-bottom:6px;">
+              <div style="font-size:9px;font-weight:600;color:#2d2924;">"Our team tried everything to change habits..."</div>
+              <div style="font-size:8px;color:#9a9389;margin-top:3px;">r/leadership · 142 upvotes</div>
+              <div class="mock-btn" style="font-size:7px;margin-top:4px;display:inline-block;">Save Quote</div>
+            </div>
+            <div style="padding:8px;background:#f3f1ee;border-radius:4px;">
+              <div style="font-size:9px;font-weight:600;color:#2d2924;">"Nudges work better than mandatory training"</div>
+              <div style="font-size:8px;color:#9a9389;margin-top:3px;">r/humanresources · 89 upvotes</div>
+              <div class="mock-btn" style="font-size:7px;margin-top:4px;display:inline-block;background:#FA6F1C;color:#fff;border-color:#FA6F1C;">Saved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 4: Brainstorm -->
+  <div class="slide" data-index="4">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 3</div>
+        <h1 class="slide-title">Brainstorm copy with AI</h1>
+        <p class="slide-desc">
+          The <strong>Brainstorm</strong> tab generates ad copy variations using either
+          built-in templates or Claude AI. Each variation gets a
+          <strong>headline effectiveness score</strong> so you know what's strong before you export.
+        </p>
+        <ul class="feature-list">
+          <li><strong>Templates</strong> mode: instant generation from product details + tone</li>
+          <li><strong>AI Generate</strong> mode: paste a brief or upload a PDF/TXT file</li>
+          <li>5 tones: Professional, Playful, Urgent, Luxury, Minimal</li>
+          <li>Liked variations influence future AI output</li>
+          <li>Undo button to remove just-added variations</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-tab-bar" style="margin-bottom:10px;">
+              <div class="mock-tab">Research</div>
+              <div class="mock-tab active">Brainstorm</div>
+              <div class="mock-tab">Bulk</div>
+              <div class="mock-tab">Design</div>
+            </div>
+            <div style="display:flex;gap:4px;margin-bottom:10px;">
+              <div class="mock-btn" style="font-size:9px;">Templates</div>
+              <div class="mock-btn accent" style="font-size:9px;">AI Generate</div>
+            </div>
+            <div class="mock-input" style="height:32px;font-size:8px;">Your marketing brief here...</div>
+            <div style="display:flex;gap:3px;margin-bottom:10px;">
+              <div class="mock-btn" style="font-size:7px;">Professional</div>
+              <div class="mock-btn accent" style="font-size:7px;">Urgent</div>
+              <div class="mock-btn" style="font-size:7px;">Luxury</div>
+            </div>
+            <div style="font-size:8px;color:#7a746b;font-weight:600;margin-bottom:6px;">GENERATED VARIATIONS</div>
+            <div style="padding:6px 8px;background:#f3f1ee;border-radius:4px;margin-bottom:4px;display:flex;align-items:flex-start;gap:6px;">
+              <div style="width:10px;height:10px;border:1.5px solid #FA6F1C;border-radius:2px;margin-top:1px;flex-shrink:0;background:#FA6F1C;"></div>
+              <div>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:9px;font-weight:700;color:#2d2924;">#1</span>
+                  <span style="font-size:7px;background:#22c55e;color:#fff;padding:1px 4px;border-radius:2px;font-weight:600;">92</span>
+                </div>
+                <div style="font-size:8px;font-weight:600;color:#2d2924;margin-top:2px;">Your Team Is Underperforming. Here's Why.</div>
+                <div style="font-size:7px;color:#7a746b;margin-top:1px;">GWork identifies hidden behavioral bottlenecks...</div>
+              </div>
+            </div>
+            <div style="padding:6px 8px;background:#f3f1ee;border-radius:4px;display:flex;align-items:flex-start;gap:6px;">
+              <div style="width:10px;height:10px;border:1.5px solid #e5e1db;border-radius:2px;margin-top:1px;flex-shrink:0;"></div>
+              <div>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <span style="font-size:9px;font-weight:700;color:#2d2924;">#2</span>
+                  <span style="font-size:7px;background:#f59e0b;color:#fff;padding:1px 4px;border-radius:2px;font-weight:600;">74</span>
+                </div>
+                <div style="font-size:8px;font-weight:600;color:#2d2924;margin-top:2px;">Stop Training. Start Changing Behavior.</div>
+                <div style="font-size:7px;color:#7a746b;margin-top:1px;">Traditional L&D fails because it teaches knowledge...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Preview & Compare -->
+  <div class="slide" data-index="5">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 4</div>
+        <h1 class="slide-title">Preview & compare</h1>
+        <p class="slide-desc">
+          The <strong>live preview</strong> updates instantly as you edit. Click any
+          variation thumbnail to see it on the canvas. <strong>Like</strong> your favourites,
+          then open <strong>Compare mode</strong> to see them side by side.
+        </p>
+        <ul class="feature-list">
+          <li>Canvas view shows the full ad creative</li>
+          <li>Feed Preview shows how it looks in a Meta feed</li>
+          <li>"Copy for Meta" copies headline + body + CTA to clipboard</li>
+          <li>Like 2+ variations to unlock side-by-side comparison</li>
+          <li>Compare up to 4 variations simultaneously</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+            <div style="display:flex;gap:6px;align-items:center;">
+              <div class="mock-btn" style="font-size:8px;">Canvas View</div>
+              <div class="mock-btn accent" style="font-size:8px;">Feed Preview</div>
+              <div class="mock-btn" style="font-size:8px;">Copy for Meta</div>
+            </div>
+            <div style="display:flex;gap:12px;width:100%;">
+              <div class="mock-ad" style="flex:1;height:120px;border-radius:8px;">
+                <div class="mock-ad-headline">Your Team Is Underperforming</div>
+                <div class="mock-ad-cta">Book a Demo</div>
+              </div>
+              <div class="mock-ad" style="flex:1;height:120px;border-radius:8px;background:linear-gradient(135deg, #0f766e, #14b8a6);">
+                <div class="mock-ad-headline">Stop Training. Start Changing.</div>
+                <div class="mock-ad-cta">Learn More</div>
+              </div>
+            </div>
+            <div style="font-size:8px;color:#FA6F1C;font-weight:600;">Compare Liked (2)</div>
+            <div class="mock-thumbs" style="gap:6px;">
+              <div class="mock-thumb liked"></div>
+              <div class="mock-thumb"></div>
+              <div class="mock-thumb liked"></div>
+              <div class="mock-thumb"></div>
+              <div class="mock-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Export -->
+  <div class="slide" data-index="6">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 5</div>
+        <h1 class="slide-title">Export your creatives</h1>
+        <p class="slide-desc">
+          Click <strong>Export</strong> in the header to download your ads as PNG or JPEG.
+          Export a single creative, all variations as a ZIP, or the current ad
+          in all 4 aspect ratios at once.
+        </p>
+        <ul class="feature-list">
+          <li>PNG (lossless) or JPEG (with quality slider)</li>
+          <li>Custom filename patterns: {brand}_{template}_{num}</li>
+          <li>Export Current — single image download</li>
+          <li>Export All Sizes — one ad in all aspect ratios</li>
+          <li>Export All Variations — bulk ZIP download</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-header-bar">
+              <div class="mock-logo"><div class="mock-logo-icon"></div> Ad Generator</div>
+              <div class="mock-btns">
+                <div class="mock-btn highlight">Export ▾</div>
+              </div>
+            </div>
+            <div class="mock-dropdown" style="top:48px;right:20px;">
+              <div style="font-size:8px;font-weight:700;color:#9a9389;margin-bottom:4px;">FORMAT</div>
+              <div style="display:flex;gap:3px;margin-bottom:8px;">
+                <div class="mock-btn accent" style="font-size:8px;">PNG</div>
+                <div class="mock-btn" style="font-size:8px;">JPEG</div>
+              </div>
+              <div style="font-size:8px;font-weight:700;color:#9a9389;margin-bottom:4px;">FILENAME</div>
+              <div class="mock-input" style="font-size:8px;">{brand}_{template}_{num}</div>
+              <div style="border-top:1px solid #e5e1db;margin:6px 0;"></div>
+              <div class="mock-btn" style="font-size:8px;width:100%;text-align:left;margin-bottom:3px;">Export Current</div>
+              <div class="mock-btn" style="font-size:8px;width:100%;text-align:left;margin-bottom:3px;">Export All Sizes</div>
+              <div class="mock-btn accent" style="font-size:8px;width:100%;text-align:left;">Export All (4) ZIP</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: Project Save/Load -->
+  <div class="slide" data-index="7">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 6</div>
+        <h1 class="slide-title">Save & load projects</h1>
+        <p class="slide-desc">
+          Click <strong>Project</strong> in the header to save your entire workspace
+          as a JSON file — or load a previously saved project. This preserves your
+          design config, all variations, and liked IDs.
+        </p>
+        <ul class="feature-list">
+          <li><strong>Save Project</strong> downloads a .json file with all your work</li>
+          <li><strong>Load Project</strong> restores config, variations, and liked IDs</li>
+          <li>Confirmation dialog prevents accidental overwrites</li>
+          <li>Share project files with teammates</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body">
+            <div class="mock-header-bar">
+              <div class="mock-logo"><div class="mock-logo-icon"></div> Ad Generator</div>
+              <div class="mock-btns">
+                <div class="mock-btn highlight">Project ▾</div>
+                <div class="mock-btn">Export ▾</div>
+              </div>
+            </div>
+            <div class="mock-dropdown" style="top:48px;right:68px;">
+              <div class="mock-btn" style="font-size:9px;width:100%;text-align:left;margin-bottom:3px;">Save Project</div>
+              <div class="mock-btn" style="font-size:9px;width:100%;text-align:left;">Load Project...</div>
+            </div>
+            <div style="margin-top:80px;padding:12px;background:#f3f1ee;border-radius:6px;display:flex;align-items:center;gap:8px;">
+              <div style="font-size:16px;">📄</div>
+              <div>
+                <div style="font-size:10px;font-weight:600;color:#2d2924;">ad-project-gwork-2026-02-25.json</div>
+                <div style="font-size:8px;color:#9a9389;">Config + 4 variations + 2 liked</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8: Publish to Meta -->
+  <div class="slide" data-index="8">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Step 7</div>
+        <h1 class="slide-title">Publish to Meta</h1>
+        <p class="slide-desc">
+          Go straight from design to live ads. <strong>Publish to Meta</strong> sends
+          a single creative, or use <strong>Bulk Publish</strong> to push all your
+          variations at once. Track performance in the <strong>Performance</strong> tab.
+        </p>
+        <ul class="feature-list">
+          <li>Single publish with headline, body, CTA, and image</li>
+          <li>Bulk publish all variations in one action</li>
+          <li>Performance tab shows spend, clicks, CTR, CPC</li>
+          <li>"Remix Winner" sends top performers back to Brainstorm</li>
+        </ul>
+      </div>
+      <div class="slide-visual">
+        <div class="mockup">
+          <div class="mockup-header">
+            <div class="mockup-dot"></div><div class="mockup-dot"></div><div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-body" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:6px;">
+              <div class="mock-btn" style="font-size:9px;background:rgba(250,111,28,0.1);border-color:rgba(250,111,28,0.3);">Publish to Meta</div>
+              <div class="mock-btn accent" style="font-size:9px;">Bulk Publish (4)</div>
+            </div>
+            <div style="font-size:8px;font-weight:700;color:#9a9389;text-transform:uppercase;letter-spacing:0.08em;">Performance</div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;padding:8px;background:#f3f1ee;border-radius:4px;text-align:center;">
+                <div style="font-size:14px;font-weight:800;color:#2d2924;">$342</div>
+                <div style="font-size:7px;color:#9a9389;">Spend</div>
+              </div>
+              <div style="flex:1;padding:8px;background:#f3f1ee;border-radius:4px;text-align:center;">
+                <div style="font-size:14px;font-weight:800;color:#2d2924;">1,247</div>
+                <div style="font-size:7px;color:#9a9389;">Clicks</div>
+              </div>
+              <div style="flex:1;padding:8px;background:#f3f1ee;border-radius:4px;text-align:center;">
+                <div style="font-size:14px;font-weight:800;color:#22c55e;">$0.27</div>
+                <div style="font-size:7px;color:#9a9389;">Avg CPC</div>
+              </div>
+            </div>
+            <div style="padding:8px;background:#f3f1ee;border-radius:4px;border-left:3px solid #22c55e;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:9px;font-weight:700;color:#2d2924;">Your Team Is Underperforming</div>
+                <div style="font-size:7px;background:#22c55e;color:#fff;padding:1px 5px;border-radius:2px;">ACTIVE</div>
+              </div>
+              <div style="font-size:8px;color:#9a9389;margin-top:3px;">$0.19 CPC · 3.8% CTR · 847 clicks</div>
+              <div class="mock-btn" style="font-size:7px;margin-top:4px;display:inline-block;">Remix Winner</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 9: Shortcuts & workflow -->
+  <div class="slide" data-index="9">
+    <div class="slide-inner">
+      <div class="slide-text">
+        <div class="slide-badge">Pro tips</div>
+        <h1 class="slide-title">Keyboard shortcuts</h1>
+        <p class="slide-desc">
+          Speed up your workflow with these shortcuts. The app also auto-saves
+          everything to your browser's localStorage.
+        </p>
+        <div class="shortcut-grid" style="margin-bottom:24px;">
+          <span class="kbd">Ctrl+Z</span> <span>Undo</span>
+          <span class="kbd">Ctrl+Shift+Z</span> <span>Redo</span>
+          <span class="kbd">Ctrl+S</span> <span>Export current</span>
+          <span class="kbd">Ctrl+Shift+S</span> <span>Export all (ZIP)</span>
+          <span class="kbd">Ctrl+E</span> <span>Toggle sidebar</span>
+          <span class="kbd">Esc</span> <span>Close modals</span>
+        </div>
+        <div class="slide-badge" style="margin-bottom:12px;">Recommended workflow</div>
+        <div class="flow">
+          <div class="flow-step">Research</div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-step">Brainstorm</div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-step">Design</div>
+          <div class="flow-arrow">&rarr;</div>
+          <div class="flow-step">Export / Publish</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  // Build dots
+  const dotsEl = document.getElementById('dots');
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function updateUI() {
+    document.getElementById('stepLabel').textContent = `${current + 1} / ${total}`;
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').textContent = current === total - 1 ? 'Done' : 'Next';
+    document.getElementById('progress').style.width = `${((current + 1) / total) * 100}%`;
+
+    const dots = dotsEl.querySelectorAll('.dot');
+    dots.forEach((d, i) => d.className = 'dot' + (i === current ? ' active' : ''));
+  }
+
+  function goTo(idx) {
+    if (idx < 0 || idx >= total || idx === current) return;
+    slides[current].classList.remove('active');
+    slides[current].classList.add('exiting');
+    setTimeout(() => slides[current === idx ? current : current].classList.remove('exiting'), 500);
+
+    const prev = current;
+    current = idx;
+    slides[current].classList.add('active');
+
+    setTimeout(() => slides[prev].classList.remove('exiting'), 500);
+    updateUI();
+  }
+
+  function go(dir) {
+    if (current === total - 1 && dir === 1) {
+      // Last slide "Done" — close or redirect
+      window.location.href = '/';
+      return;
+    }
+    goTo(current + dir);
+  }
+
+  // Keyboard nav
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+  });
+
+  updateUI();
+</script>
+</body>
+</html>
