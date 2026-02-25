@@ -31,6 +31,9 @@ interface Props {
   // Project save/load
   onSaveProject: () => void;
   onLoadProject: (file: File) => void;
+  isDirty: boolean;
+  recentProjects: { name: string; savedAt: string; variationCount: number; data: unknown }[];
+  onLoadRecentProject: (project: { name: string; savedAt: string; variationCount: number; data: unknown }) => void;
 }
 
 export const HeaderBar = memo(function HeaderBar(props: Props) {
@@ -45,6 +48,9 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
     onBulkPublishMeta,
     onSaveProject,
     onLoadProject,
+    isDirty,
+    recentProjects,
+    onLoadRecentProject,
   } = props;
 
   const [showProjectMenu, setShowProjectMenu] = useState(false);
@@ -97,8 +103,32 @@ export const HeaderBar = memo(function HeaderBar(props: Props) {
           >
             Project &#x25BE;
           </button>
+          <span style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: isDirty ? 'var(--warning)' : 'var(--success)',
+            whiteSpace: 'nowrap',
+          }}>
+            {isDirty ? 'Unsaved changes' : 'Saved'}
+          </span>
           {showProjectMenu && (
-            <div className="export-dropdown">
+            <div className="export-dropdown" style={{ minWidth: 240 }}>
+              {recentProjects.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Recent</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {recentProjects.map((rp, i) => (
+                      <button key={i} className="btn-secondary"
+                        onClick={() => { onLoadRecentProject(rp); setShowProjectMenu(false); }}
+                        style={{ width: '100%', fontSize: 11, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rp.name}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-faint)', flexShrink: 0, marginLeft: 8 }}>{rp.variationCount}v</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <button className="btn-secondary" onClick={() => { onSaveProject(); setShowProjectMenu(false); }}
                   style={{ width: '100%', fontSize: 12, textAlign: 'left' }}>

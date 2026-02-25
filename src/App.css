@@ -148,24 +148,54 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  border-radius: 0;
+  transition: color 0.2s, border-color 0.2s, transform 0.25s ease, filter 0.25s ease, background 0.25s ease;
+  border-radius: 6px 6px 0 0;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .tab-btn:hover {
-  color: var(--text-muted);
+  color: #a855f7;
+  transform: translateY(-2px) scale(1.15);
+  filter: drop-shadow(0 2px 6px rgba(168, 85, 247, 0.35));
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.tab-btn:hover svg {
+  stroke: #a855f7;
+  animation: tab-icon-bounce 0.4s ease;
+}
+
+.tab-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
 .tab-btn.active {
-  color: var(--text-secondary);
-  border-bottom-color: var(--accent);
+  color: #a855f7;
+  border-bottom-color: #a855f7;
+}
+
+.tab-btn.active svg {
+  stroke: #a855f7;
+}
+
+@keyframes tab-icon-bounce {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.1); }
+  50% { transform: rotate(6deg) scale(1.15); }
+  75% { transform: rotate(-3deg) scale(1.08); }
+  100% { transform: rotate(0deg) scale(1); }
 }
 
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
+  min-width: 0;
 }
 
 /* ── Preview area ── */
@@ -581,6 +611,34 @@ select.editor-input option {
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.export-toast--undo {
+  background: var(--accent);
+}
+
+/* ── Project drag-and-drop overlay ── */
+.project-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 3px dashed var(--accent);
+  pointer-events: none;
+  animation: fade-in 0.15s ease-out;
+}
+
+.project-drop-overlay div {
+  padding: 24px 48px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Focus-visible for keyboard navigation (CSS4 fix) ── */

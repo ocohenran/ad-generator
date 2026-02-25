@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_PREFIX = 'ad-gen:';
 const DEBOUNCE_MS = 500;
@@ -16,10 +16,18 @@ function stripHeavyFields(value: unknown): unknown {
   return value;
 }
 
-export function useSaveToStorage<T>(key: string, value: T) {
+export function useSaveToStorage<T>(key: string, value: T): { dirty: boolean } {
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isFirstRender = useRef(true);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    setDirty(true);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       try {
@@ -28,10 +36,13 @@ export function useSaveToStorage<T>(key: string, value: T) {
       } catch {
         // Storage full or unavailable
       }
+      setDirty(false);
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timerRef.current);
   }, [key, value]);
+
+  return { dirty };
 }
 
 export function loadFromStorage<T>(key: string, fallback: T): T {
