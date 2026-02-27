@@ -178,9 +178,9 @@ export function EditorPanel({ config, onChange }: Props) {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
     if (file.size > MAX_SIZE) {
-      alert('Image must be under 5 MB. Please compress or resize it first.');
+      alert('Image must be under 10 MB. Please compress or resize it first.');
       e.target.value = '';
       return;
     }

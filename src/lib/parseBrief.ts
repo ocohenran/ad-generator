@@ -1,8 +1,8 @@
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function parseFile(file: File): Promise<string> {
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error('File too large (max 5MB).');
+    throw new Error('File too large (max 10MB).');
   }
 
   const ext = file.name.split('.').pop()?.toLowerCase();

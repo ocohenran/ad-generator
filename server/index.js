@@ -12,7 +12,7 @@ const TOKEN_FILE = join(__dirname, '.meta-token.json');
 const PUBLICATIONS_FILE = join(__dirname, 'data', 'publications.json');
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: /^http:\/\/localhost:\d+$/ }));
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -148,7 +148,7 @@ app.get('/api/meta/callback', async (req, res) => {
     // Close the popup
     res.send(`
       <html><body><script>
-        window.opener && window.opener.postMessage({ type: 'meta-auth-success' }, 'http://localhost:5173');
+        window.opener && window.opener.postMessage({ type: 'meta-auth-success' }, window.opener.location.origin);
         window.close();
       </script><p>Connected! You can close this window.</p></body></html>
     `);
@@ -157,7 +157,7 @@ app.get('/api/meta/callback', async (req, res) => {
     const safeError = (err.message || 'Unknown error').replace(/[<>"'&]/g, '');
     res.status(500).send(`
       <html><body><script>
-        window.opener && window.opener.postMessage({ type: 'meta-auth-error', error: ${JSON.stringify(safeError)} }, 'http://localhost:5173');
+        window.opener && window.opener.postMessage({ type: 'meta-auth-error', error: ${JSON.stringify(safeError)} }, window.opener.location.origin);
         window.close();
       </script><p>Authentication failed. You can close this window.</p></body></html>
     `);
@@ -684,57 +684,35 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function xmlEscape(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 async function updateYoastSEO(pageId, seo) {
   if (!WP_URL || !WP_USER || !WP_APP_PASSWORD) {
     throw new Error('WordPress credentials not configured');
   }
 
-  const fields = [
-    { key: '_yoast_wpseo_title', value: seo.metaTitle || '' },
-    { key: '_yoast_wpseo_metadesc', value: seo.metaDescription || '' },
-    { key: '_yoast_wpseo_focuskw', value: seo.focusKeyword || '' },
-  ].filter(f => f.value);
+  const meta = {};
+  if (seo.metaTitle) meta['yoast_wpseo_title'] = seo.metaTitle;
+  if (seo.metaDescription) meta['yoast_wpseo_metadesc'] = seo.metaDescription;
+  if (seo.focusKeyword) meta['yoast_wpseo_focuskw'] = seo.focusKeyword;
 
-  if (fields.length === 0) return;
+  if (Object.keys(meta).length === 0) return;
 
-  const fieldsXml = fields.map(f =>
-    `<value><struct>` +
-    `<member><name>key</name><value><string>${xmlEscape(f.key)}</string></value></member>` +
-    `<member><name>value</name><value><string>${xmlEscape(f.value)}</string></value></member>` +
-    `</struct></value>`
-  ).join('\n');
+  const wpAuth = Buffer.from(`${WP_USER}:${WP_APP_PASSWORD}`).toString('base64');
 
-  const xmlBody = `<?xml version="1.0"?>
-<methodCall>
-  <methodName>wp.editPost</methodName>
-  <params>
-    <param><value><int>1</int></value></param>
-    <param><value><string>${WP_USER}</string></value></param>
-    <param><value><string>${WP_APP_PASSWORD}</string></value></param>
-    <param><value><int>${pageId}</int></value></param>
-    <param><value><struct>
-      <member><name>custom_fields</name><value><array><data>
-        ${fieldsXml}
-      </data></array></value></member>
-    </struct></value></param>
-  </params>
-</methodCall>`;
-
-  const res = await fetch(`${WP_URL}/xmlrpc.php`, {
+  // Use WP REST API to update Yoast meta fields.
+  // Yoast SEO plugin registers these as rest-accessible meta keys on pages/posts.
+  // Note: XML-RPC custom_fields silently fails for underscore-prefixed meta keys.
+  const res = await fetch(`${WP_URL}/wp-json/wp/v2/pages/${pageId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body: xmlBody,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Basic ${wpAuth}`,
+    },
+    body: JSON.stringify({ meta }),
   });
 
-  const text = await res.text();
-  if (text.includes('<fault>')) {
-    const msg = text.match(/<string>(.*?)<\/string>/)?.[1] || 'Yoast SEO update failed';
-    throw new Error(msg);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Yoast SEO update failed (HTTP ${res.status})`);
   }
 }
 
@@ -795,7 +773,54 @@ app.post('/api/landing-page/publish', async (req, res) => {
   }
 });
 
-/* ── Keyword extraction (uses server-side ANTHROPIC_API_KEY) ── */
+/* ── Claude API helper with model fallback ── */
+
+const CLAUDE_MODELS = [
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-5-20251001',
+];
+
+async function callClaude(apiKey, { system, userMessage, maxTokens = 1024 }) {
+  for (const model of CLAUDE_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+      });
+
+      if (response.status === 529 || response.status === 503) {
+        console.log(`${model} overloaded (attempt ${attempt + 1}), retrying...`);
+        await new Promise(r => setTimeout(r, (attempt + 1) * 1500));
+        continue;
+      }
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Claude API returned ${response.status}`);
+      }
+
+      const body = await response.json();
+      const textBlock = body.content?.find((b) => b.type === 'text');
+      if (!textBlock?.text) throw new Error('Empty response from Claude');
+      console.log(`Used model: ${model}`);
+      return textBlock.text.trim();
+    }
+    console.log(`${model} exhausted retries, trying next model...`);
+  }
+  throw new Error('All Claude models are overloaded. Try again in a minute.');
+}
+
+/* ── Keyword extraction ── */
 
 app.post('/api/keywords/extract', async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -805,17 +830,8 @@ app.post('/api/keywords/extract', async (req, res) => {
   if (!text?.trim()) return res.status(400).json({ error: 'Text is required' });
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: `You are a Reddit search keyword expert. Given marketing copy (headlines, value propositions, taglines), extract 6-10 short search queries that real people would use on Reddit when discussing the problems, frustrations, or desires this copy addresses.
+    let jsonStr = await callClaude(apiKey, {
+      system: `You are a Reddit search keyword expert. Given marketing copy (headlines, value propositions, taglines), extract 6-10 short search queries that real people would use on Reddit when discussing the problems, frustrations, or desires this copy addresses.
 
 Rules:
 - Each query should be 2-5 words — natural Reddit language, not marketing speak
@@ -824,18 +840,9 @@ Rules:
 - Think about what someone would type into Reddit search BEFORE they know this product exists
 
 Respond ONLY with a JSON array of strings. No markdown, no explanation, just the JSON array.`,
-        messages: [{ role: 'user', content: text }],
-      }),
+      userMessage: text,
     });
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error?.message || `Claude API returned ${response.status}`);
-    }
-
-    const body = await response.json();
-    const textBlock = body.content?.find((b) => b.type === 'text');
-    let jsonStr = textBlock?.text?.trim() || '[]';
     const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) jsonStr = fenceMatch[1].trim();
 
@@ -843,6 +850,53 @@ Respond ONLY with a JSON array of strings. No markdown, no explanation, just the
     res.json({ keywords });
   } catch (err) {
     console.error('Keyword extraction error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── AI Brainstorm (server-side, avoids browser CORS / key issues) ── */
+
+app.post('/api/brainstorm/generate', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
+
+  const { brief, tone } = req.body;
+  if (!brief?.trim()) return res.status(400).json({ error: 'Brief is required' });
+
+  try {
+    let jsonStr = await callClaude(apiKey, {
+      system: `You are a direct-response copywriter who has studied Gary Halbert, Eugene Schwartz, David Ogilvy, and modern Meta ad performance data. You write ads that STOP the scroll and make people click.
+
+Your rules:
+1. NEVER be generic. Every headline must have a specific hook — a number, a provocation, a counterintuitive claim, or a pattern interrupt.
+2. Use the EXACT language from the brief. If the brief contains Reddit quotes or real customer language, weave those phrases directly into the copy. People click when they see their own words reflected back.
+3. Headlines: max 10 words. Lead with the pain, the outcome, or the unexpected truth. No filler words. "How to..." is lazy — earn attention.
+4. Primary text: 1-2 sentences. Be specific and concrete. Replace adjectives with evidence. "Better results" is weak. "34% fewer missed deadlines in 90 days" hits.
+5. CTAs: Each ad gets a DIFFERENT CTA that matches its angle. "Learn More" is banned. Use action-specific CTAs that tell people exactly what happens next.
+6. Mix these angles across the 8 variations:
+   - Pain agitation (make the problem feel urgent)
+   - Social proof / authority (numbers, logos, results)
+   - Contrarian take (challenge conventional wisdom)
+   - Direct benefit (what they get, fast)
+   - Curiosity gap (open a loop they need to close)
+   - Us vs them (old way vs new way)
+   - Story hook (mini narrative in the headline)
+   - Risk reversal (remove the objection)
+
+Generate exactly 8 ad variations. Respond ONLY with a JSON array of objects with "headline", "paragraph", and "cta" keys. No markdown, no explanation.`,
+      userMessage: `Tone: ${tone || 'Professional'}\n\nBrief:\n${brief}`,
+      maxTokens: 2048,
+    });
+
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+    const variations = JSON.parse(jsonStr).filter(
+      (item) => item && typeof item.headline === 'string' && typeof item.paragraph === 'string'
+    );
+    res.json({ variations });
+  } catch (err) {
+    console.error('Brainstorm error:', err);
     res.status(500).json({ error: err.message });
   }
 });

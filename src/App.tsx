@@ -525,8 +525,16 @@ function App() {
                   <BrainstormPanel
                     onAdd={(newVars) => setVariations((prev) => [...prev, ...newVars])}
                     onRemoveLast={(ids) => setVariations((prev) => prev.filter((v) => !ids.includes(v.id)))}
+                    onReplaceUnliked={(newVars) => {
+                      setVariations((prev) => [
+                        ...prev.filter((v) => likedIds.has(v.id)),
+                        ...newVars,
+                      ]);
+                    }}
                     initialBrief={researchBrief}
                     likedVariations={likedVariations}
+                    totalVariations={variations.length}
+                    unlikedCount={variations.length - likedIds.size}
                   />
                 )}
                 {activeTab === 'performance' && (

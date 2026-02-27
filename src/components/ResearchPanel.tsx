@@ -443,14 +443,44 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
         </div>
       )}
 
-      {/* Saved Quotes */}
+      {/* Next Step CTA — always visible when quotes are saved */}
       {savedQuotes.length > 0 && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+        <div style={{
+          position: 'sticky', bottom: 0,
+          background: 'var(--bg-secondary)', paddingTop: 12, paddingBottom: 4,
+          borderTop: '1px solid var(--border)',
+          zIndex: 10,
+        }}>
+          <button
+            onClick={sendToBrainstormer}
+            style={{
+              width: '100%', padding: '12px 16px',
+              background: '#a855f7', color: '#fff', border: 'none', borderRadius: 8,
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'background 0.15s, transform 0.15s',
+              boxShadow: '0 2px 12px rgba(168, 85, 247, 0.3)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#9333ea'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#a855f7'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            Next: Generate Ad Copy
+            <span style={{ fontSize: 18 }}>{'\u2192'}</span>
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'center', marginTop: 6 }}>
+            {savedQuotes.length} quote{savedQuotes.length !== 1 ? 's' : ''} will be sent as your creative brief
+          </div>
+        </div>
+      )}
+
+      {/* Saved Quotes list */}
+      {savedQuotes.length > 0 && (
+        <div>
           <button
             onClick={() => setQuotesExpanded((p) => !p)}
             style={{
               background: 'none', border: 'none', color: 'var(--text-secondary)',
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: 0, marginBottom: 8,
+              cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: 0, marginBottom: 6,
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
             }}
           >
@@ -458,37 +488,32 @@ export function ResearchPanel({ state, onStateChange, onSendToBrief }: Props) {
           </button>
 
           {quotesExpanded && (
-            <>
-              <div style={{ marginBottom: 10 }}>
-                {savedQuotes.map((q, i) => (
-                  <div key={q.id} style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 20px',
-                    gap: 4,
-                    padding: '8px 0',
-                    borderBottom: i < savedQuotes.length - 1 ? '1px solid var(--border)' : 'none',
-                  }}>
-                    <div style={{ minWidth: 0, wordWrap: 'break-word', overflowWrap: 'break-word' }}>
-                      <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 10, marginBottom: 2 }}>r/{q.subreddit}</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5 }}>
-                        {q.postTitle}
-                      </div>
+            <div>
+              {savedQuotes.map((q, i) => (
+                <div key={q.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 20px',
+                  gap: 4,
+                  padding: '8px 0',
+                  borderBottom: i < savedQuotes.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <div style={{ minWidth: 0, wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+                    <div style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 10, marginBottom: 2 }}>r/{q.subreddit}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5 }}>
+                      {q.postTitle}
                     </div>
-                    <button
-                      onClick={() => removeQuote(q.id)}
-                      style={{
-                        background: 'none', border: 'none', color: 'var(--text-dim)',
-                        cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1,
-                      }}
-                      aria-label="Remove quote"
-                    >&times;</button>
                   </div>
-                ))}
-              </div>
-              <button className="btn-primary" onClick={sendToBrainstormer} style={{ width: '100%' }}>
-                Send to Brainstormer
-              </button>
-            </>
+                  <button
+                    onClick={() => removeQuote(q.id)}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-dim)',
+                      cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1,
+                    }}
+                    aria-label="Remove quote"
+                  >&times;</button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

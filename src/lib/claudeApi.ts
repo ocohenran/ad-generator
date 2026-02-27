@@ -5,15 +5,56 @@ export interface AdCopyResult {
 }
 
 export class ClaudeApiError extends Error {
-  readonly code: 'invalid_key' | 'rate_limited' | 'network' | 'bad_response';
+  readonly code: 'invalid_key' | 'rate_limited' | 'overloaded' | 'network' | 'bad_response';
 
   constructor(
     message: string,
-    code: 'invalid_key' | 'rate_limited' | 'network' | 'bad_response',
+    code: 'invalid_key' | 'rate_limited' | 'overloaded' | 'network' | 'bad_response',
   ) {
     super(message);
     this.code = code;
   }
+}
+
+const MAX_RETRIES = 3;
+
+const MODELS = ['claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'];
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit & { body?: string },
+  signal?: AbortSignal,
+): Promise<Response> {
+  for (const model of MODELS) {
+    // Swap the model in the request body
+    const body = init.body ? JSON.parse(init.body) : {};
+    body.model = model;
+    const modifiedInit = { ...init, body: JSON.stringify(body) };
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      let response: Response;
+      try {
+        response = await fetch(url, { ...modifiedInit, signal });
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        throw new ClaudeApiError('Network error. Check your connection.', 'network');
+      }
+
+      if ((response.status === 529 || response.status === 503) && attempt < MAX_RETRIES) {
+        const wait = (attempt + 1) * 1500;
+        await new Promise((r) => setTimeout(r, wait));
+        if (signal?.aborted) throw new ClaudeApiError('Aborted', 'network');
+        continue;
+      }
+
+      if (response.status === 529 || response.status === 503) {
+        break; // try next model
+      }
+
+      return response;
+    }
+  }
+  throw new ClaudeApiError('All models overloaded. Try again in a minute.', 'overloaded');
 }
 
 const SYSTEM_PROMPT = `You are an expert advertising copywriter specializing in Meta/Facebook ads. Given a marketing brief, generate exactly 8 ad copy variations. Each variation has:
@@ -31,39 +72,35 @@ export async function generateAdCopy(
   tone: string,
   signal?: AbortSignal,
 ): Promise<AdCopyResult[]> {
-  let response: Response;
-  try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `Tone: ${tone}\n\nMarketing Brief:\n${briefText}`,
-          },
-        ],
-      }),
-      signal,
-    });
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    throw new ClaudeApiError('Network error. Check your connection.', 'network');
-  }
+  const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514', // fallback to haiku handled by fetchWithRetry
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `Tone: ${tone}\n\nMarketing Brief:\n${briefText}`,
+        },
+      ],
+    }),
+  }, signal);
 
   if (response.status === 401) {
     throw new ClaudeApiError('Invalid API key. Check your key in Settings.', 'invalid_key');
   }
   if (response.status === 429) {
     throw new ClaudeApiError('Rate limited — wait a moment and try again.', 'rate_limited');
+  }
+  if (response.status === 529) {
+    throw new ClaudeApiError('Claude is overloaded. Try again in a minute.', 'overloaded');
   }
   if (!response.ok) {
     throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');
@@ -140,36 +177,32 @@ export async function extractRedditKeywords(
   marketingCopy: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  let response: Response;
-  try {
-    response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: KEYWORD_SYSTEM_PROMPT,
-        messages: [
-          { role: 'user', content: marketingCopy },
-        ],
-      }),
-      signal,
-    });
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    throw new ClaudeApiError('Network error. Check your connection.', 'network');
-  }
+  const response = await fetchWithRetry('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: KEYWORD_SYSTEM_PROMPT,
+      messages: [
+        { role: 'user', content: marketingCopy },
+      ],
+    }),
+  }, signal);
 
   if (response.status === 401) {
     throw new ClaudeApiError('Invalid API key. Check your key in Settings.', 'invalid_key');
   }
   if (response.status === 429) {
     throw new ClaudeApiError('Rate limited — wait a moment and try again.', 'rate_limited');
+  }
+  if (response.status === 529) {
+    throw new ClaudeApiError('Claude is overloaded. Try again in a minute.', 'overloaded');
   }
   if (!response.ok) {
     throw new ClaudeApiError('Unexpected response. Try again.', 'bad_response');

@@ -29,7 +29,7 @@ export function LandingPageModal({ ad, onClose }: Props) {
 
   // Generate on mount
   useEffect(() => {
-    const apiKey = localStorage.getItem('ad-gen:apiKey') || '';
+    const apiKey = localStorage.getItem('ad-gen:anthropic-api-key') || '';
     if (!apiKey) {
       setError('No API key set. Open Settings to add your Claude API key.');
       setStep('error');
@@ -93,7 +93,7 @@ export function LandingPageModal({ ad, onClose }: Props) {
     setError('');
     setContent(null);
 
-    const apiKey = localStorage.getItem('ad-gen:apiKey') || '';
+    const apiKey = localStorage.getItem('ad-gen:anthropic-api-key') || '';
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
