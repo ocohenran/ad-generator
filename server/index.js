@@ -755,7 +755,7 @@ app.post('/api/landing-page/publish', async (req, res) => {
     const page = await createRes.json();
     const pageId = page.id;
 
-    // Set Yoast SEO fields via XML-RPC
+    // Set Yoast SEO fields via REST API
     try {
       await updateYoastSEO(pageId, { metaTitle, metaDescription, focusKeyword });
     } catch (yoastErr) {
@@ -769,6 +769,67 @@ app.post('/api/landing-page/publish', async (req, res) => {
     });
   } catch (err) {
     console.error('Landing page publish error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ── Landing page AI generation (server-side) ── */
+
+const LANDING_PAGE_SYSTEM = `You are an expert landing page copywriter. Given a winning Meta ad (with performance data), generate a complete landing page that preserves the ad's winning angle and messaging.
+
+The landing page must feel like a natural extension of the ad - when someone clicks the ad, the landing page headline should match what they just read.
+
+Return a single JSON object with these exact keys:
+- title: Main H1 (matches the ad's winning hook, max 10 words)
+- subheadline: Supporting headline (1 sentence, expands the value prop)
+- heroText: Hero paragraph (2-3 sentences, the core pitch)
+- benefits: Array of 3-4 objects with { heading, body } - concrete outcomes, not features
+- ctaHeading: CTA section heading (creates urgency)
+- ctaBody: CTA section paragraph (1-2 sentences, final push)
+- ctaButton: Button text (2-5 words)
+- faqs: Array of 4-5 objects with { question, answer } - address objections
+- seo: { metaTitle (max 60 chars with brand), metaDescription (max 155 chars), focusKeyword (2-3 words), slug (lowercase-dashed) }
+
+Respond ONLY with the JSON object. No markdown fences, no explanation.`;
+
+app.post('/api/landing-page/generate', async (req, res) => {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set on server' });
+
+  const { headline, body, ctaText, cpc, ctr, spend, clicks } = req.body;
+  if (!headline) return res.status(400).json({ error: 'headline is required' });
+
+  const userMessage = `Winning Meta Ad:
+Headline: "${headline}"
+Body: "${body || ''}"
+CTA: "${ctaText || ''}"
+
+Performance Metrics:
+- CPC: $${cpc != null ? Number(cpc).toFixed(2) : 'N/A'}
+- CTR: ${ctr != null ? Number(ctr).toFixed(2) : 'N/A'}%
+- Spend: $${spend != null ? Number(spend).toFixed(2) : 'N/A'}
+- Clicks: ${clicks ?? 'N/A'}
+
+Generate a landing page that extends this winning ad angle into a full page.`;
+
+  try {
+    let jsonStr = await callClaude(apiKey, {
+      system: LANDING_PAGE_SYSTEM,
+      userMessage,
+      maxTokens: 4096,
+    });
+
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
+    if (!parsed.title || !parsed.heroText || !Array.isArray(parsed.benefits) || !Array.isArray(parsed.faqs)) {
+      throw new Error('Invalid landing page structure from AI');
+    }
+
+    res.json(parsed);
+  } catch (err) {
+    console.error('Landing page generation error:', err);
     res.status(500).json({ error: err.message });
   }
 });

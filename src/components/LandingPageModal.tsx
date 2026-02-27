@@ -27,19 +27,8 @@ export function LandingPageModal({ ad, onClose }: Props) {
   const [metaDescription, setMetaDescription] = useState('');
   const [focusKeyword, setFocusKeyword] = useState('');
 
-  // Generate on mount
-  useEffect(() => {
-    const apiKey = localStorage.getItem('ad-gen:anthropic-api-key') || '';
-    if (!apiKey) {
-      setError('No API key set. Open Settings to add your Claude API key.');
-      setStep('error');
-      return;
-    }
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-
-    generateLandingPage(apiKey, {
+  const doGenerate = (signal: AbortSignal) => {
+    generateLandingPage({
       headline: ad.headline,
       body: ad.body,
       ctaText: ad.ctaText,
@@ -47,7 +36,7 @@ export function LandingPageModal({ ad, onClose }: Props) {
       ctr: ad.metrics?.ctr,
       spend: ad.metrics?.spend,
       clicks: ad.metrics?.clicks,
-    }, ctrl.signal)
+    }, signal)
       .then((generated) => {
         setContent(generated);
         setTitle(generated.title);
@@ -58,11 +47,17 @@ export function LandingPageModal({ ad, onClose }: Props) {
         setStep('preview');
       })
       .catch((err) => {
-        if (ctrl.signal.aborted) return;
+        if (signal.aborted) return;
         setError(err.message || 'Generation failed');
         setStep('error');
       });
+  };
 
+  // Generate on mount
+  useEffect(() => {
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    doGenerate(ctrl.signal);
     return () => ctrl.abort();
   }, [ad]);
 
@@ -93,33 +88,10 @@ export function LandingPageModal({ ad, onClose }: Props) {
     setError('');
     setContent(null);
 
-    const apiKey = localStorage.getItem('ad-gen:anthropic-api-key') || '';
+    abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-
-    generateLandingPage(apiKey, {
-      headline: ad.headline,
-      body: ad.body,
-      ctaText: ad.ctaText,
-      cpc: ad.metrics?.cpc,
-      ctr: ad.metrics?.ctr,
-      spend: ad.metrics?.spend,
-      clicks: ad.metrics?.clicks,
-    }, ctrl.signal)
-      .then((generated) => {
-        setContent(generated);
-        setTitle(generated.title);
-        setSlug(generated.seo.slug);
-        setMetaTitle(generated.seo.metaTitle);
-        setMetaDescription(generated.seo.metaDescription);
-        setFocusKeyword(generated.seo.focusKeyword);
-        setStep('preview');
-      })
-      .catch((err) => {
-        if (ctrl.signal.aborted) return;
-        setError(err.message || 'Generation failed');
-        setStep('error');
-      });
+    doGenerate(ctrl.signal);
   };
 
   return (
